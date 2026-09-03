@@ -1,0 +1,399 @@
+package syn
+
+import (
+	"fmt"
+	"os"
+	"strings"
+	"time"
+)
+
+// Result describes what one sync operation did to one repository.
+type Result struct {
+	Repo      string
+	Branch    string
+	Committed bool
+	Pulled    int
+	Pushed    int
+	Backup    string
+	Conflict  *Conflict
+	Err       error
+}
+
+// OK reports whether the operation finished without error or conflict.
+func (r Result) OK() bool { return r.Err == nil && r.Conflict == nil }
+
+// Summary renders a one-line human description of the result.
+func (r Result) Summary() string {
+	switch {
+	case r.Err != nil:
+		return fmt.Sprintf("%s: FAILED - %v", r.Repo, r.Err)
+	case r.Conflict != nil:
+		return fmt.Sprintf("%s: CONFLICT on %s (%s) - backup branch %s",
+			r.Repo, r.Branch, strings.Join(r.Conflict.Files, ", "), r.Conflict.BackupBranch)
+	}
+	var parts []string
+	if r.Committed {
+		parts = append(parts, "committed local changes")
+	}
+	if r.Pulled > 0 {
+		parts = append(parts, fmt.Sprintf("pulled %d", r.Pulled))
+	}
+	if r.Pushed > 0 {
+		parts = append(parts, fmt.Sprintf("pushed %d", r.Pushed))
+	}
+	if len(parts) == 0 {
+		parts = append(parts, "already up to date")
+	}
+	return fmt.Sprintf("%s: %s", r.Repo, strings.Join(parts, ", "))
+}
+
+// Engine performs sync operations against the configured repositories.
+type Engine struct {
+	Cfg      *Config
+	State    *State
+	Creds    *Credentials
+	Notifier *Notifier
+}
+
+// NewEngine wires an engine from a config, loading persisted state.
+func NewEngine(cfg *Config) *Engine {
+	return &Engine{Cfg: cfg, State: LoadState(), Creds: LoadCredentials(), Notifier: NewNotifier(cfg)}
+}
+
+// tokenFor returns the stored GitHub token if r uses an HTTPS github.com remote,
+// otherwise "". Git operations via SSH don't need a token.
+func (e *Engine) tokenFor(r *Repo) string {
+	rawURL, err := RemoteURL(r.Path, r.Remote)
+	if err != nil {
+		return ""
+	}
+	host := RemoteHost(rawURL)
+	if host == "github.com" && !strings.HasPrefix(rawURL, "git@") {
+		return e.Creds.Token("github.com")
+	}
+	return ""
+}
+
+// gitR runs a git command for a specific repo, injecting GitHub credentials
+// when the remote is an HTTPS github.com URL.
+func (e *Engine) gitR(r *Repo, args ...string) (string, error) {
+	return gitWithToken(r.Path, e.tokenFor(r), args...)
+}
+
+func hostname() string {
+	h, err := os.Hostname()
+	if err != nil || h == "" {
+		return "unknown-host"
+	}
+	return h
+}
+
+// prepare validates the repo and returns the branch to work on.
+func (e *Engine) prepare(r *Repo) (string, error) {
+	if !IsRepo(r.Path) {
+		return "", fmt.Errorf("%s is not a git working tree", r.Path)
+	}
+	if op := InProgress(r.Path); op != "" {
+		return "", fmt.Errorf("a %s is already in progress - finish it or run `syn resolve %s --abort`", op, r.Name)
+	}
+	branch := r.Branch
+	cur, err := CurrentBranch(r.Path)
+	if err != nil {
+		return "", err
+	}
+	if branch == "" {
+		branch = cur
+	} else if cur != branch {
+		return "", fmt.Errorf("repo is on %q but is pinned to %q - switch branches or run `syn set %s branch %s`", cur, branch, r.Name, cur)
+	}
+	if _, err := RemoteURL(r.Path, r.Remote); err != nil {
+		return "", fmt.Errorf("remote %q is not configured in %s", r.Remote, r.Path)
+	}
+	return branch, nil
+}
+
+// backup creates (and optionally pushes) a safety branch pointing at HEAD, so
+// nothing a rebase touches can be lost.
+func (e *Engine) backup(r *Repo, branch string) string {
+	if !e.Cfg.Backup {
+		return ""
+	}
+	base := fmt.Sprintf("syn/backup/%s/%s/%s",
+		sanitizeRef(hostname()), sanitizeRef(branch), time.Now().Format("20060102-150405"))
+	// Two backups can land in the same second; keep the names unique.
+	name := base
+	for i := 2; gitOK(r.Path, "rev-parse", "--verify", "--quiet", name); i++ {
+		name = fmt.Sprintf("%s-%d", base, i)
+	}
+	if _, err := git(r.Path, "branch", name, "HEAD"); err != nil {
+		Warn("%s: could not create backup branch: %v", r.Name, err)
+		return ""
+	}
+	Debug("%s: backup branch %s", r.Name, name)
+	if e.Cfg.PushBackup {
+		if _, err := gitWithToken(r.Path, e.Creds.Token("github.com"), "push", "--quiet", r.Remote, name); err != nil {
+			Warn("%s: backup branch %s stayed local: %v", r.Name, name, err)
+		}
+	}
+	return name
+}
+
+func sanitizeRef(s string) string {
+	repl := strings.NewReplacer(" ", "-", "~", "-", "^", "-", ":", "-", "?", "-", "*", "-", "[", "-", "\\", "-")
+	return strings.Trim(repl.Replace(s), "-.")
+}
+
+// autoCommit stages and commits everything in the working tree.
+func (e *Engine) autoCommit(r *Repo) (bool, error) {
+	dirty, err := IsDirty(r.Path)
+	if err != nil || !dirty {
+		return false, err
+	}
+	if _, err := git(r.Path, "add", "-A"); err != nil {
+		return false, err
+	}
+	msg := strings.NewReplacer(
+		"{host}", hostname(),
+		"{time}", time.Now().Format("2006-01-02 15:04"),
+	).Replace(e.Cfg.CommitTemplate)
+	if _, err := git(r.Path, "commit", "--quiet", "-m", msg); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// recordConflict persists a conflict, notifies, and returns it.
+func (e *Engine) recordConflict(r *Repo, branch, backupBranch, reason string, files []string) *Conflict {
+	c := &Conflict{
+		Repo:         r.Name,
+		Branch:       branch,
+		BackupBranch: backupBranch,
+		Files:        files,
+		Reason:       reason,
+		At:           time.Now(),
+	}
+	e.State.Conflicts[r.Name] = *c
+	if err := e.State.Save(); err != nil {
+		Warn("could not persist conflict state: %v", err)
+	}
+	Errorf("%s: conflict on %s (%s)", r.Name, branch, reason)
+	body := fmt.Sprintf("synchronize: конфликт\n\nРепо: %s\nВетка: %s\nМашина: %s\nПричина: %s\nФайлы: %s\nБэкап-ветка: %s\n\nПочини вручную и запусти: syn resolve %s",
+		r.Name, branch, hostname(), reason, strings.Join(files, ", "), backupBranch, r.Name)
+	e.Notifier.Send("conflict", body)
+	return c
+}
+
+func (e *Engine) clearConflict(name string) {
+	if _, ok := e.State.Conflicts[name]; ok {
+		delete(e.State.Conflicts, name)
+		_ = e.State.Save()
+	}
+}
+
+// integrate brings remote commits into the local branch using the configured
+// strategy, aborting cleanly if git cannot do it on its own.
+func (e *Engine) integrate(r *Repo, branch string) (conflicted bool, files []string, err error) {
+	ref := r.Remote + "/" + branch
+	var gerr error
+	if e.Cfg.Strategy == "merge" {
+		_, gerr = git(r.Path, "merge", "--no-edit", ref)
+	} else {
+		_, gerr = git(r.Path, "rebase", ref)
+	}
+	if gerr == nil {
+		return false, nil, nil
+	}
+	files = ConflictedFiles(r.Path)
+	if len(files) == 0 && InProgress(r.Path) == "" {
+		// Not a conflict - something else went wrong (bad ref, failing hook, ...).
+		return false, nil, gerr
+	}
+	if e.Cfg.Strategy == "merge" {
+		_, _ = git(r.Path, "merge", "--abort")
+	} else {
+		_, _ = git(r.Path, "rebase", "--abort")
+	}
+	return true, files, nil
+}
+
+// Pull brings the repository up to date with the remote. Uncommitted work is
+// stashed across the operation and restored afterwards.
+func (e *Engine) Pull(r *Repo) Result {
+	res := Result{Repo: r.Name}
+	branch, err := e.prepare(r)
+	if err != nil {
+		res.Err = err
+		return res
+	}
+	res.Branch = branch
+
+	if _, err := e.gitR(r, "fetch", "--prune", r.Remote); err != nil {
+		res.Err = err
+		return res
+	}
+	if !RemoteBranchExists(r.Path, r.Remote, branch) {
+		Info("%s: %s/%s does not exist yet, nothing to pull", r.Name, r.Remote, branch)
+		return res
+	}
+	ahead, behind, err := AheadBehind(r.Path, branch, r.Remote)
+	if err != nil {
+		res.Err = err
+		return res
+	}
+	dirty, err := IsDirty(r.Path)
+	if err != nil {
+		res.Err = err
+		return res
+	}
+	if behind == 0 {
+		e.markSynced(r)
+		return res
+	}
+
+	if ahead > 0 || dirty {
+		res.Backup = e.backup(r, branch)
+	}
+
+	stashed := false
+	if dirty {
+		if _, err := git(r.Path, "stash", "push", "--include-untracked", "-m", "syn-auto-stash"); err != nil {
+			res.Err = fmt.Errorf("could not set aside local changes: %w", err)
+			return res
+		}
+		stashed = true
+	}
+
+	conflicted, files, err := e.integrate(r, branch)
+	if err != nil {
+		if stashed {
+			_, _ = git(r.Path, "stash", "pop")
+		}
+		res.Err = err
+		return res
+	}
+	if conflicted {
+		if stashed {
+			_, _ = git(r.Path, "stash", "pop")
+		}
+		res.Conflict = e.recordConflict(r, branch, res.Backup, "local commits conflict with the remote", files)
+		return res
+	}
+	res.Pulled = behind
+
+	if stashed {
+		if _, err := git(r.Path, "stash", "pop"); err != nil {
+			if cf := ConflictedFiles(r.Path); len(cf) > 0 {
+				res.Conflict = e.recordConflict(r, branch, res.Backup,
+					"your uncommitted edits conflict with the pulled changes", cf)
+				return res
+			}
+			res.Err = fmt.Errorf("could not restore local changes (they are safe in `git stash list`): %w", err)
+			return res
+		}
+	}
+	e.clearConflict(r.Name)
+	e.markSynced(r)
+	return res
+}
+
+// Push commits any local work, rebases it onto the remote and publishes it.
+func (e *Engine) Push(r *Repo) Result {
+	res := Result{Repo: r.Name}
+	branch, err := e.prepare(r)
+	if err != nil {
+		res.Err = err
+		return res
+	}
+	res.Branch = branch
+
+	committed, err := e.autoCommit(r)
+	if err != nil {
+		res.Err = err
+		return res
+	}
+	res.Committed = committed
+
+	if _, err := e.gitR(r, "fetch", "--prune", r.Remote); err != nil {
+		res.Err = err
+		return res
+	}
+	ahead, behind, err := AheadBehind(r.Path, branch, r.Remote)
+	if err != nil {
+		res.Err = err
+		return res
+	}
+	if ahead == 0 && behind == 0 {
+		e.markSynced(r)
+		return res
+	}
+	if ahead > 0 {
+		res.Backup = e.backup(r, branch)
+	}
+	if behind > 0 {
+		conflicted, files, err := e.integrate(r, branch)
+		if err != nil {
+			res.Err = err
+			return res
+		}
+		if conflicted {
+			res.Conflict = e.recordConflict(r, branch, res.Backup,
+				"your commits conflict with what is already on the remote", files)
+			return res
+		}
+		res.Pulled = behind
+	}
+	ahead, _, err = AheadBehind(r.Path, branch, r.Remote)
+	if err != nil {
+		res.Err = err
+		return res
+	}
+	if ahead == 0 {
+		e.markSynced(r)
+		return res
+	}
+	if _, err := e.gitR(r, "push", r.Remote, branch); err != nil {
+		res.Err = err
+		return res
+	}
+	res.Pushed = ahead
+	e.clearConflict(r.Name)
+	e.markSynced(r)
+	return res
+}
+
+// Sync runs a pull followed by a push, which is what the periodic watcher does.
+func (e *Engine) Sync(r *Repo) Result {
+	res := e.Pull(r)
+	if !res.OK() {
+		return res
+	}
+	push := e.Push(r)
+	push.Pulled += res.Pulled
+	if push.Backup == "" {
+		push.Backup = res.Backup
+	}
+	return push
+}
+
+func (e *Engine) markSynced(r *Repo) {
+	e.State.LastSync[r.Name] = time.Now()
+	_ = e.State.Save()
+}
+
+// RunAll applies op to every selected repo and logs each outcome.
+func (e *Engine) RunAll(repos []*Repo, op func(*Repo) Result) []Result {
+	out := make([]Result, 0, len(repos))
+	for _, r := range repos {
+		res := op(r)
+		switch {
+		case res.Err != nil:
+			Errorf("%s", res.Summary())
+		case res.Conflict != nil:
+			// recordConflict already logged and notified.
+		default:
+			Info("%s", res.Summary())
+		}
+		out = append(out, res)
+	}
+	return out
+}
