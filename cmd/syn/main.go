@@ -1,6 +1,5 @@
-// Command syn is the synchronize CLI: it keeps a set of git repositories in
-// step with their remotes automatically, pulling when the machine starts and
-// pushing when it shuts down.
+
+
 package main
 
 import (
@@ -16,9 +15,11 @@ import (
 	"github.com/FalconTechDev/synchronize/internal/syn"
 )
 
-const version = "1.0.0"
+var Version = "dev"
 
-const usage = `synchronize (syn) ` + version + ` - automatic git sync across your machines
+const usage = `synchronize (syn) — automatic git sync across your machines
+
+ - automatic git sync across your machines
 
 USAGE
   syn <command> [repo] [flags]
@@ -96,8 +97,8 @@ func main() {
 		return
 	}
 
-	// valueFlags take the following argument as their value, so it must not be
-	// mistaken for a repository name.
+	
+	
 	valueFlags := map[string]bool{
 		"--days":     true,
 		"--pat":      true,
@@ -147,7 +148,7 @@ func main() {
 		}
 		return ""
 	}
-	// A repo selector of "" means "all enabled repos".
+	
 	selector := arg(0)
 	if has("--all") {
 		selector = ""
@@ -173,14 +174,14 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		fmt.Print(usage)
 		return nil
 	case "version", "--version":
-		fmt.Printf("synchronize %s (%s/%s)\n", version, runtime.GOOS, runtime.GOARCH)
+		fmt.Printf("synchronize %s (%s/%s)\n", Version, runtime.GOOS, runtime.GOARCH)
 		return nil
 
-	// ---- GitHub Auth ----
+	
 	case "auth":
 		return cmdAuth(cfg, creds, rest, has, values)
 
-	// ---- Repositories ----
+	
 	case "init":
 		return cmdInit(cfg, arg(0))
 	case "repo":
@@ -246,7 +247,7 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		return nil
 
 	case "receive":
-		// syn receive <repo-name> [--dest ./folder]
+		
 		if arg(0) == "" {
 			return fmt.Errorf("usage: syn receive <repo-name> [--dest ./folder]")
 		}
@@ -263,7 +264,7 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 			return err
 		}
 		stop := make(chan struct{})
-		// Ctrl+C stops receive.
+		
 		go func() {
 			ch := make(chan os.Signal, 1)
 			signal.Notify(ch, os.Interrupt)
@@ -284,7 +285,7 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 	case "set":
 		return cmdSet(cfg, arg(0), arg(1), arg(2))
 
-	// ---- File rules ----
+	
 	case "files":
 		return cmdFiles(cfg, rest)
 
@@ -345,7 +346,7 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		}
 		return engine.RestoreBackup(repos[0], arg(1))
 	case "prune":
-		days := -1 // -1 means "use keep_backup_days"
+		days := -1 
 		if v := values["--days"]; v != "" {
 			n, err := strconv.Atoi(v)
 			if err != nil || n < 0 {
@@ -535,10 +536,6 @@ func cmdSet(cfg *syn.Config, key, field, value string) error {
 	return nil
 }
 
-// ---------------------------------------------------------------------------
-// GitHub Auth
-// ---------------------------------------------------------------------------
-
 func cmdAuth(cfg *syn.Config, creds *syn.Credentials, rest []string, has func(string) bool, values map[string]string) error {
 	sub := ""
 	if len(rest) > 0 {
@@ -558,7 +555,7 @@ func cmdAuth(cfg *syn.Config, creds *syn.Credentials, rest []string, has func(st
 			syn.Info("logged in as %s", display)
 			return nil
 		}
-		// Device Flow if client_id is configured, otherwise prompt for PAT.
+		
 		clientID := cfg.GitHubClientID
 		if clientID == "" {
 			fmt.Fprintln(os.Stderr, "No GitHub OAuth App configured. Options:")
@@ -618,10 +615,6 @@ func cmdAuth(cfg *syn.Config, creds *syn.Credentials, rest []string, has func(st
 	}
 }
 
-// ---------------------------------------------------------------------------
-// repo add / repo ls
-// ---------------------------------------------------------------------------
-
 func cmdRepo(cfg *syn.Config, creds *syn.Credentials, engine *syn.Engine, rest []string, has func(string) bool, values map[string]string) error {
 	sub := ""
 	if len(rest) > 0 {
@@ -665,7 +658,7 @@ func cmdRepoAdd(cfg *syn.Config, creds *syn.Credentials, slug string, values map
 		return fmt.Errorf("could not find %s on GitHub: %w\n(private repo? run `syn auth login` first)", slug, err)
 	}
 
-	// Resolve local destination path.
+	
 	destPath := values["--path"]
 	if destPath == "" {
 		destPath = "./" + repoName
@@ -675,13 +668,13 @@ func cmdRepoAdd(cfg *syn.Config, creds *syn.Credentials, slug string, values map
 		return err
 	}
 
-	// Branch.
+	
 	branch := values["--branch"]
 	if branch == "" {
 		branch = info.DefaultBranch
 	}
 
-	// Per-repo interval override.
+	
 	interval := 0
 	if v := values["--interval"]; v != "" {
 		n, err := strconv.Atoi(v)
@@ -691,12 +684,12 @@ func cmdRepoAdd(cfg *syn.Config, creds *syn.Credentials, slug string, values map
 		interval = n
 	}
 
-	// Check if we already track this path.
+	
 	if existing := cfg.Find(abs); existing != nil {
 		return fmt.Errorf("already registered as %q", existing.Name)
 	}
 
-	// Clone or link.
+	
 	if syn.IsRepo(abs) {
 		syn.Info("directory %s is already a git repo - linking it", abs)
 	} else {
@@ -775,10 +768,6 @@ func cmdRepoList(creds *syn.Credentials) error {
 	fmt.Printf("\n%d repositories\n", len(repos))
 	return nil
 }
-
-// ---------------------------------------------------------------------------
-// File rules
-// ---------------------------------------------------------------------------
 
 func cmdFiles(cfg *syn.Config, rest []string) error {
 	sub := ""
@@ -1053,7 +1042,7 @@ func truthy(v string) bool {
 }
 
 func cmdDoctor(e *syn.Engine, cfg *syn.Config) error {
-	fmt.Printf("synchronize %s on %s/%s\n", version, runtime.GOOS, runtime.GOARCH)
+	fmt.Printf("synchronize %s on %s/%s\n", Version, runtime.GOOS, runtime.GOARCH)
 	if out, err := exechelp(); err != nil {
 		fmt.Printf("  git:        NOT FOUND (%v)\n", err)
 	} else {
@@ -1079,8 +1068,6 @@ func cmdDoctor(e *syn.Engine, cfg *syn.Config) error {
 	return nil
 }
 
-// cmdRepoCreate creates a new GitHub repo and registers it locally.
-// temp=true marks it as a temporary repo (syn tmp create).
 func cmdRepoCreate(cfg *syn.Config, creds *syn.Credentials, name string, temp, public bool, values map[string]string) error {
 	token := creds.Token("github.com")
 	if token == "" {
@@ -1226,9 +1213,9 @@ func cmdTmp(cfg *syn.Config, creds *syn.Credentials, rest []string, has func(str
 }
 
 func cmdSend(cfg *syn.Config, creds *syn.Credentials, engine *syn.Engine, rest []string, values map[string]string) error {
-	// syn send file1 [file2...] [@repo-name]
-	// If last arg starts with @, send to that registered repo.
-	// Otherwise create a new tmp repo.
+	
+	
+	
 	if len(rest) == 0 {
 		return fmt.Errorf("usage: syn send <file> [@repo-name]\n  or:  syn send <file> (creates a new tmp repo)")
 	}
@@ -1245,7 +1232,7 @@ func cmdSend(cfg *syn.Config, creds *syn.Credentials, engine *syn.Engine, rest [
 	if len(files) == 0 {
 		return fmt.Errorf("no files specified")
 	}
-	// Validate files exist.
+	
 	for _, f := range files {
 		if _, err := os.Stat(f); err != nil {
 			return fmt.Errorf("file not found: %s", f)
@@ -1260,7 +1247,7 @@ func cmdSend(cfg *syn.Config, creds *syn.Credentials, engine *syn.Engine, rest [
 		return engine.SendFiles(repo, files)
 	}
 
-	// No target - create a one-shot tmp repo.
+	
 	name, err := engine.SendViaNewTmp(creds, cfg, files)
 	if err != nil {
 		return err
@@ -1277,7 +1264,7 @@ func cmdEncrypt(cfg *syn.Config, creds *syn.Credentials, rest []string, values m
 	}
 	switch sub {
 	case "init":
-		// syn encrypt init <repo-name>
+		
 		if len(rest) < 2 {
 			return fmt.Errorf("usage: syn encrypt init <repo-name>")
 		}
@@ -1301,7 +1288,7 @@ func cmdEncrypt(cfg *syn.Config, creds *syn.Credentials, rest []string, values m
 		return nil
 
 	case "add-key":
-		// syn encrypt add-key <repo-name> <hex-key>
+		
 		if len(rest) < 3 {
 			return fmt.Errorf("usage: syn encrypt add-key <repo-name> <hex-key>")
 		}
@@ -1330,7 +1317,7 @@ func cmdEncrypt(cfg *syn.Config, creds *syn.Credentials, rest []string, values m
 		fmt.Println(hexKey)
 		return nil
 
-	// Internal subcommands called by git clean/smudge filters:
+	
 	case "clean":
 		if len(rest) < 2 {
 			return fmt.Errorf("clean: need repo name")
