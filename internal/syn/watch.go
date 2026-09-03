@@ -8,20 +8,14 @@ import (
 	"time"
 )
 
-// Watch runs the background sync loop. Each repo is synced at its own
-// interval. An initial pull runs first; on SIGTERM/SIGINT everything is
-// pushed before exit.
 func (e *Engine) Watch(repos []*Repo) {
 	e.watchLoop(repos, make(chan struct{}))
 }
 
-// WatchWithTray runs the sync loop in a background goroutine and starts the
-// system tray on the calling (main OS) thread. The tray's Quit button
-// gracefully stops the watcher.
 func (e *Engine) WatchWithTray(repos []*Repo, cfg *Config) {
 	stop := make(chan struct{})
 	go e.watchLoop(repos, stop)
-	// RunTray blocks until the user quits; it closes stop on exit.
+	
 	runTrayWithStop(cfg, e, stop)
 }
 
@@ -31,7 +25,7 @@ func (e *Engine) watchLoop(repos []*Repo, externalStop <-chan struct{}) {
 	sigStop := make(chan os.Signal, 1)
 	signal.Notify(sigStop, os.Interrupt, syscall.SIGTERM)
 
-	// Initial pull so we start up to date.
+	
 	TrayMarkSyncing(true)
 	e.RunAll(repos, e.Pull)
 	TrayMarkSyncing(false)

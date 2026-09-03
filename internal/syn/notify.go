@@ -7,21 +7,14 @@ import (
 	"time"
 )
 
-
-// Notifier sends a message somewhere the user will actually see it.
 type Notifier struct {
 	cfg *Config
 }
 
-// NewNotifier builds a notifier bound to the current config.
 func NewNotifier(cfg *Config) *Notifier { return &Notifier{cfg: cfg} }
 
-// Send delivers msg unless notifications are switched off. level is
-// "conflict" for problems and "info" for routine events; the config's
-// Notify setting decides which of those actually go out.
-// A native OS desktop notification is always shown for conflicts.
 func (n *Notifier) Send(level, msg string) {
-	// Native OS toast for conflicts — works offline, no setup needed.
+	
 	if level == "conflict" {
 		lines := strings.SplitN(msg, "\n", 3)
 		title := "synchronize: конфликт"

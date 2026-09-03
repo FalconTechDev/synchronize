@@ -8,8 +8,6 @@ import (
 	"time"
 )
 
-// Conflict records a sync that stopped because git could not merge cleanly.
-// It survives restarts so `syn status` and `syn resolve` can pick it up later.
 type Conflict struct {
 	Repo         string    `json:"repo"`
 	Branch       string    `json:"branch"`
@@ -19,15 +17,13 @@ type Conflict struct {
 	At           time.Time `json:"at"`
 }
 
-// State is the mutable runtime record kept next to the config.
 type State struct {
-	Conflicts map[string]Conflict  `json:"conflicts"` // keyed by repo name
+	Conflicts map[string]Conflict  `json:"conflicts"` 
 	LastSync  map[string]time.Time `json:"last_sync"`
 }
 
 func statePath() string { return filepath.Join(Home(), "state.json") }
 
-// LoadState reads state.json, returning an empty state if it does not exist.
 func LoadState() *State {
 	st := &State{Conflicts: map[string]Conflict{}, LastSync: map[string]time.Time{}}
 	b, err := os.ReadFile(statePath())
@@ -44,7 +40,6 @@ func LoadState() *State {
 	return st
 }
 
-// Save writes the state back to disk atomically.
 func (s *State) Save() error {
 	if err := os.MkdirAll(Home(), 0o755); err != nil {
 		return err

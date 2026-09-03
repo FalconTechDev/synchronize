@@ -6,8 +6,6 @@ import (
 	"time"
 )
 
-// RepoStatus is a read-only snapshot of one repository. Nothing here touches
-// the network unless fetch is true.
 type RepoStatus struct {
 	Repo      *Repo
 	Branch    string
@@ -21,8 +19,6 @@ type RepoStatus struct {
 	Err       error
 }
 
-// Status inspects a repository. With fetch, it first updates remote refs so
-// the ahead/behind counts are accurate.
 func (e *Engine) Status(r *Repo, fetch bool) RepoStatus {
 	st := RepoStatus{Repo: r}
 	if c, ok := e.State.Conflicts[r.Name]; ok {
@@ -54,7 +50,6 @@ func (e *Engine) Status(r *Repo, fetch bool) RepoStatus {
 	return st
 }
 
-// String renders the status as the block shown by `syn status`.
 func (s RepoStatus) String() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s  (%s)\n", s.Repo.Name, s.Repo.Path)
@@ -96,7 +91,6 @@ func orDefault(v, fallback string) string {
 	return v
 }
 
-// timeAgo returns a human-readable duration like "2 min ago", "just now", "3 h ago".
 func timeAgo(t time.Time) string {
 	d := time.Since(t)
 	switch {

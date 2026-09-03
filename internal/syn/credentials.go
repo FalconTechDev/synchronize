@@ -7,14 +7,12 @@ import (
 	"path/filepath"
 )
 
-// Credentials holds GitHub auth tokens, keyed by hostname (normally "github.com").
 type Credentials struct {
-	Tokens map[string]string `json:"tokens"` // hostname -> PAT / OAuth token
+	Tokens map[string]string `json:"tokens"` 
 }
 
 func credsPath() string { return filepath.Join(Home(), "credentials.json") }
 
-// LoadCredentials reads the credentials file, returning empty creds if absent.
 func LoadCredentials() *Credentials {
 	c := &Credentials{Tokens: map[string]string{}}
 	b, err := os.ReadFile(credsPath())
@@ -28,7 +26,6 @@ func LoadCredentials() *Credentials {
 	return c
 }
 
-// Save writes credentials to disk with restricted permissions.
 func (c *Credentials) Save() error {
 	if err := os.MkdirAll(Home(), 0o755); err != nil {
 		return err
@@ -44,7 +41,6 @@ func (c *Credentials) Save() error {
 	return os.Rename(tmp, credsPath())
 }
 
-// Token returns the stored token for host, or "".
 func (c *Credentials) Token(host string) string {
 	if c == nil {
 		return ""
@@ -52,7 +48,6 @@ func (c *Credentials) Token(host string) string {
 	return c.Tokens[host]
 }
 
-// Set stores (or clears, if token is "") the token for host.
 func (c *Credentials) Set(host, token string) {
 	if token == "" {
 		delete(c.Tokens, host)

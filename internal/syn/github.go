@@ -14,18 +14,16 @@ import (
 
 const (
 	githubHost = "github.com"
-	// DefaultClientID is the synchronize GitHub OAuth App.
-	// Users who want their own app: `syn auth setup <client_id>`.
+	
+	
 	DefaultClientID = ""
 )
 
-// GitHub is a thin GitHub API client that carries an auth token.
 type GitHub struct {
 	Token  string
 	Client *http.Client
 }
 
-// NewGitHub returns a client. token may be "".
 func NewGitHub(token string) *GitHub {
 	return &GitHub{Token: token, Client: &http.Client{Timeout: 30 * time.Second}}
 }
@@ -64,7 +62,6 @@ func (g *GitHub) get(path string, out any) error {
 	return json.NewDecoder(resp.Body).Decode(out)
 }
 
-// WhoAmI returns the authenticated user's login, or an error.
 func (g *GitHub) WhoAmI() (string, string, error) {
 	var u struct {
 		Login string `json:"login"`
@@ -81,7 +78,6 @@ func (g *GitHub) WhoAmI() (string, string, error) {
 	return u.Login, display, nil
 }
 
-// RepoInfo fetches metadata about owner/repo from GitHub.
 func (g *GitHub) RepoInfo(owner, repo string) (*GHRepo, error) {
 	var r GHRepo
 	if err := g.get("/repos/"+owner+"/"+repo, &r); err != nil {
@@ -90,7 +86,6 @@ func (g *GitHub) RepoInfo(owner, repo string) (*GHRepo, error) {
 	return &r, nil
 }
 
-// ListRepos returns all repos the authenticated user can see (public + private).
 func (g *GitHub) ListRepos(affiliation string) ([]GHRepo, error) {
 	if affiliation == "" {
 		affiliation = "owner,collaborator,organization_member"
@@ -113,7 +108,6 @@ func (g *GitHub) ListRepos(affiliation string) ([]GHRepo, error) {
 	return all, nil
 }
 
-// GHRepo is a subset of the GitHub repo object we care about.
 type GHRepo struct {
 	FullName      string `json:"full_name"`
 	CloneURL      string `json:"clone_url"`
@@ -121,11 +115,9 @@ type GHRepo struct {
 	DefaultBranch string `json:"default_branch"`
 	Private       bool   `json:"private"`
 	Description   string `json:"description"`
-	Size          int    `json:"size"` // KB
+	Size          int    `json:"size"` 
 }
 
-// CloneURLWithAuth returns an HTTPS clone URL with the token embedded,
-// suitable for use as a git remote (stored only in the local .git/config).
 func (r *GHRepo) CloneURLWithAuth(token string) string {
 	if token == "" {
 		return r.CloneURL
@@ -138,11 +130,6 @@ func (r *GHRepo) CloneURLWithAuth(token string) string {
 	return u.String()
 }
 
-// ---------------------------------------------------------------------------
-// Device Flow (OAuth without a browser redirect)
-// ---------------------------------------------------------------------------
-
-// DeviceFlowStart kicks off the GitHub Device Flow and returns the result.
 type DeviceFlowStart struct {
 	DeviceCode      string `json:"device_code"`
 	UserCode        string `json:"user_code"`
@@ -151,7 +138,6 @@ type DeviceFlowStart struct {
 	Interval        int    `json:"interval"`
 }
 
-// DeviceFlowBegin starts the device flow for the given OAuth App client ID.
 func DeviceFlowBegin(clientID string) (*DeviceFlowStart, error) {
 	resp, err := http.PostForm("https://github.com/login/device/code", url.Values{
 		"client_id": {clientID},
@@ -186,8 +172,6 @@ func DeviceFlowBegin(clientID string) (*DeviceFlowStart, error) {
 	}, nil
 }
 
-// DeviceFlowPoll polls GitHub until the user authorizes or the code expires.
-// It prints status lines to stderr.
 func DeviceFlowPoll(clientID string, d *DeviceFlowStart) (string, error) {
 	deadline := time.Now().Add(time.Duration(d.ExpiresIn) * time.Second)
 	interval := time.Duration(d.Interval) * time.Second
@@ -206,7 +190,7 @@ func DeviceFlowPoll(clientID string, d *DeviceFlowStart) (string, error) {
 		vals, _ := url.ParseQuery(string(b))
 		switch vals.Get("error") {
 		case "authorization_pending":
-			// Still waiting.
+			
 		case "slow_down":
 			interval += 5 * time.Second
 		case "expired_token":
@@ -224,7 +208,6 @@ func DeviceFlowPoll(clientID string, d *DeviceFlowStart) (string, error) {
 	return "", fmt.Errorf("timed out waiting for authorization")
 }
 
-// LoginPAT stores a Personal Access Token after a quick validation.
 func LoginPAT(creds *Credentials, token string) (string, error) {
 	gh := NewGitHub(token)
 	login, display, err := gh.WhoAmI()
@@ -239,8 +222,6 @@ func LoginPAT(creds *Credentials, token string) (string, error) {
 	return display, nil
 }
 
-// LoginDeviceFlow runs the full device-flow auth and saves the resulting token.
-// clientID is the GitHub OAuth App's client_id.
 func LoginDeviceFlow(creds *Credentials, clientID string) (string, error) {
 	d, err := DeviceFlowBegin(clientID)
 	if err != nil {
@@ -265,7 +246,6 @@ func LoginDeviceFlow(creds *Credentials, clientID string) (string, error) {
 	return display, nil
 }
 
-// AuthStatus prints the current auth state to stdout and returns the login or "".
 func AuthStatus(creds *Credentials) string {
 	token := creds.Token(githubHost)
 	if token == "" {
@@ -279,7 +259,6 @@ func AuthStatus(creds *Credentials) string {
 	return display
 }
 
-// promptLine reads a single line from stdin.
 func promptLine(prompt string) string {
 	fmt.Fprint(os.Stderr, prompt)
 	s := bufio.NewScanner(os.Stdin)
@@ -289,7 +268,6 @@ func promptLine(prompt string) string {
 	return ""
 }
 
-// CreateRepo creates a new repository on GitHub and returns its info.
 func (g *GitHub) CreateRepo(name, description string, private bool) (*GHRepo, error) {
 	payload, _ := json.Marshal(map[string]interface{}{
 		"name":        name,
@@ -322,7 +300,6 @@ func (g *GitHub) CreateRepo(name, description string, private bool) (*GHRepo, er
 	return &r, nil
 }
 
-// DeleteRepo permanently deletes a GitHub repository. slug is "owner/repo".
 func (g *GitHub) DeleteRepo(slug string) error {
 	req, err := http.NewRequest("DELETE", "https://api.github.com/repos/"+slug, nil)
 	if err != nil {

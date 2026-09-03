@@ -7,7 +7,6 @@ import (
 	"time"
 )
 
-// Result describes what one sync operation did to one repository.
 type Result struct {
 	Repo      string
 	Branch    string
@@ -19,10 +18,8 @@ type Result struct {
 	Err       error
 }
 
-// OK reports whether the operation finished without error or conflict.
 func (r Result) OK() bool { return r.Err == nil && r.Conflict == nil }
 
-// Summary renders a one-line human description of the result.
 func (r Result) Summary() string {
 	switch {
 	case r.Err != nil:
@@ -47,7 +44,6 @@ func (r Result) Summary() string {
 	return fmt.Sprintf("%s: %s", r.Repo, strings.Join(parts, ", "))
 }
 
-// Engine performs sync operations against the configured repositories.
 type Engine struct {
 	Cfg      *Config
 	State    *State
@@ -55,13 +51,10 @@ type Engine struct {
 	Notifier *Notifier
 }
 
-// NewEngine wires an engine from a config, loading persisted state.
 func NewEngine(cfg *Config) *Engine {
 	return &Engine{Cfg: cfg, State: LoadState(), Creds: LoadCredentials(), Notifier: NewNotifier(cfg)}
 }
 
-// tokenFor returns the stored GitHub token if r uses an HTTPS github.com remote,
-// otherwise "". Git operations via SSH don't need a token.
 func (e *Engine) tokenFor(r *Repo) string {
 	rawURL, err := RemoteURL(r.Path, r.Remote)
 	if err != nil {
@@ -74,8 +67,6 @@ func (e *Engine) tokenFor(r *Repo) string {
 	return ""
 }
 
-// gitR runs a git command for a specific repo, injecting GitHub credentials
-// when the remote is an HTTPS github.com URL.
 func (e *Engine) gitR(r *Repo, args ...string) (string, error) {
 	return gitWithToken(r.Path, e.tokenFor(r), args...)
 }
@@ -88,7 +79,6 @@ func hostname() string {
 	return h
 }
 
-// prepare validates the repo and returns the branch to work on.
 func (e *Engine) prepare(r *Repo) (string, error) {
 	if !IsRepo(r.Path) {
 		return "", fmt.Errorf("%s is not a git working tree", r.Path)
@@ -112,15 +102,13 @@ func (e *Engine) prepare(r *Repo) (string, error) {
 	return branch, nil
 }
 
-// backup creates (and optionally pushes) a safety branch pointing at HEAD, so
-// nothing a rebase touches can be lost.
 func (e *Engine) backup(r *Repo, branch string) string {
 	if !e.Cfg.Backup {
 		return ""
 	}
 	base := fmt.Sprintf("syn/backup/%s/%s/%s",
 		sanitizeRef(hostname()), sanitizeRef(branch), time.Now().Format("20060102-150405"))
-	// Two backups can land in the same second; keep the names unique.
+	
 	name := base
 	for i := 2; gitOK(r.Path, "rev-parse", "--verify", "--quiet", name); i++ {
 		name = fmt.Sprintf("%s-%d", base, i)
@@ -143,7 +131,6 @@ func sanitizeRef(s string) string {
 	return strings.Trim(repl.Replace(s), "-.")
 }
 
-// autoCommit stages and commits everything in the working tree.
 func (e *Engine) autoCommit(r *Repo) (bool, error) {
 	dirty, err := IsDirty(r.Path)
 	if err != nil || !dirty {
@@ -162,7 +149,6 @@ func (e *Engine) autoCommit(r *Repo) (bool, error) {
 	return true, nil
 }
 
-// recordConflict persists a conflict, notifies, and returns it.
 func (e *Engine) recordConflict(r *Repo, branch, backupBranch, reason string, files []string) *Conflict {
 	c := &Conflict{
 		Repo:         r.Name,
@@ -190,8 +176,6 @@ func (e *Engine) clearConflict(name string) {
 	}
 }
 
-// integrate brings remote commits into the local branch using the configured
-// strategy, aborting cleanly if git cannot do it on its own.
 func (e *Engine) integrate(r *Repo, branch string) (conflicted bool, files []string, err error) {
 	ref := r.Remote + "/" + branch
 	var gerr error
@@ -205,7 +189,7 @@ func (e *Engine) integrate(r *Repo, branch string) (conflicted bool, files []str
 	}
 	files = ConflictedFiles(r.Path)
 	if len(files) == 0 && InProgress(r.Path) == "" {
-		// Not a conflict - something else went wrong (bad ref, failing hook, ...).
+		
 		return false, nil, gerr
 	}
 	if e.Cfg.Strategy == "merge" {
@@ -216,8 +200,6 @@ func (e *Engine) integrate(r *Repo, branch string) (conflicted bool, files []str
 	return true, files, nil
 }
 
-// Pull brings the repository up to date with the remote. Uncommitted work is
-// stashed across the operation and restored afterwards.
 func (e *Engine) Pull(r *Repo) Result {
 	res := Result{Repo: r.Name}
 	branch, err := e.prepare(r)
@@ -296,7 +278,6 @@ func (e *Engine) Pull(r *Repo) Result {
 	return res
 }
 
-// Push commits any local work, rebases it onto the remote and publishes it.
 func (e *Engine) Push(r *Repo) Result {
 	res := Result{Repo: r.Name}
 	branch, err := e.prepare(r)
@@ -361,7 +342,6 @@ func (e *Engine) Push(r *Repo) Result {
 	return res
 }
 
-// Sync runs a pull followed by a push, which is what the periodic watcher does.
 func (e *Engine) Sync(r *Repo) Result {
 	res := e.Pull(r)
 	if !res.OK() {
@@ -380,7 +360,6 @@ func (e *Engine) markSynced(r *Repo) {
 	_ = e.State.Save()
 }
 
-// RunAll applies op to every selected repo and logs each outcome.
 func (e *Engine) RunAll(repos []*Repo, op func(*Repo) Result) []Result {
 	out := make([]Result, 0, len(repos))
 	for _, r := range repos {
@@ -389,7 +368,7 @@ func (e *Engine) RunAll(repos []*Repo, op func(*Repo) Result) []Result {
 		case res.Err != nil:
 			Errorf("%s", res.Summary())
 		case res.Conflict != nil:
-			// recordConflict already logged and notified.
+			
 		default:
 			Info("%s", res.Summary())
 		}

@@ -9,7 +9,6 @@ import (
 	"strings"
 )
 
-// ToastNotify sends a native OS desktop notification. Non-blocking.
 func ToastNotify(title, body string) {
 	switch runtime.GOOS {
 	case "windows":
@@ -22,8 +21,8 @@ func ToastNotify(title, body string) {
 }
 
 func toastWindows(title, body string) {
-	// Use ToastImageAndText02 template to show the logo alongside the text.
-	// Image path is passed as a file:// URI. Falls back gracefully if logo missing.
+	
+	
 	logoPath := filepath.Join(Home(), "logo.png")
 	imgURI := ""
 	if _, err := os.Stat(logoPath); err == nil {

@@ -1,9 +1,5 @@
 package syn
 
-// Send copies one or more local files into a registered repo (or a
-// freshly-created tmp repo) and commits+pushes them immediately so the
-// other machine's watcher picks them up.
-
 import (
 	"fmt"
 	"io"
@@ -12,10 +8,6 @@ import (
 	"time"
 )
 
-
-// SendFiles copies srcPaths into destRepo's directory under a "syn-send/"
-// sub-folder and immediately pushes the result. destRepo must already be
-// registered and be a clean git working tree.
 func (e *Engine) SendFiles(destRepo *Repo, srcPaths []string) error {
 	sendDir := filepath.Join(destRepo.Path, "syn-send")
 	if err := os.MkdirAll(sendDir, 0o755); err != nil {
@@ -30,7 +22,7 @@ func (e *Engine) SendFiles(destRepo *Repo, srcPaths []string) error {
 		Info("copied %s → %s", filepath.Base(src), dst)
 	}
 
-	// Commit and push right now, don't wait for the watcher.
+	
 	if _, err := git(destRepo.Path, "add", "syn-send/"); err != nil {
 		return err
 	}
@@ -47,8 +39,6 @@ func (e *Engine) SendFiles(destRepo *Repo, srcPaths []string) error {
 	return nil
 }
 
-// SendViaNewTmp creates a fresh private tmp repo, copies srcPaths into it,
-// and pushes. Returns the repo name so the caller can print instructions.
 func (e *Engine) SendViaNewTmp(creds *Credentials, cfg *Config, srcPaths []string) (string, error) {
 	token := creds.Token("github.com")
 	if token == "" {
@@ -89,8 +79,6 @@ func (e *Engine) SendViaNewTmp(creds *Credentials, cfg *Config, srcPaths []strin
 	return name, nil
 }
 
-// ReceiveFiles watches the syn-send/ folder in repo and copies any new files
-// to destDir. It pulls first, then blocks until stop is closed.
 func (e *Engine) ReceiveFiles(repo *Repo, destDir string, stop <-chan struct{}) error {
 	if err := os.MkdirAll(destDir, 0o755); err != nil {
 		return err
@@ -98,7 +86,7 @@ func (e *Engine) ReceiveFiles(repo *Repo, destDir string, stop <-chan struct{}) 
 	sendDir := filepath.Join(repo.Path, "syn-send")
 
 	seen := map[string]bool{}
-	// Seed seen with files already present so we only copy NEW ones.
+	
 	if entries, err := os.ReadDir(sendDir); err == nil {
 		for _, e := range entries {
 			seen[e.Name()] = true
@@ -113,7 +101,7 @@ func (e *Engine) ReceiveFiles(repo *Repo, destDir string, stop <-chan struct{}) 
 		case <-time.After(5 * time.Second):
 		}
 
-		// Pull to get the latest.
+		
 		e.Pull(repo)
 
 		entries, err := os.ReadDir(sendDir)

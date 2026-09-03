@@ -19,9 +19,6 @@ func plistPath() (string, error) {
 	return filepath.Join(home, "Library", "LaunchAgents", agentLabel+".plist"), nil
 }
 
-// InstallAutostart writes a LaunchAgent. launchd starts it at login and sends
-// SIGTERM at logout/shutdown, so the watcher gets to push before the machine
-// goes down.
 func InstallAutostart() error {
 	exe, err := ExePath()
 	if err != nil {
@@ -65,7 +62,6 @@ func InstallAutostart() error {
 	return nil
 }
 
-// UninstallAutostart unloads and removes the agent.
 func UninstallAutostart() error {
 	path, err := plistPath()
 	if err != nil {
@@ -79,7 +75,6 @@ func UninstallAutostart() error {
 	return nil
 }
 
-// AutostartStatus reports whether launchd knows about the agent.
 func AutostartStatus() string {
 	out, err := run("launchctl", "list", agentLabel)
 	if err != nil || strings.TrimSpace(out) == "" {
@@ -88,7 +83,6 @@ func AutostartStatus() string {
 	return fmt.Sprintf("  %-28s installed\n", agentLabel)
 }
 
-// StartWatcherNow kickstarts the agent.
 func StartWatcherNow() error {
 	if out, err := run("launchctl", "start", agentLabel); err != nil {
 		return fmt.Errorf("%s", strings.TrimSpace(out))

@@ -7,9 +7,6 @@ import (
 	"time"
 )
 
-// Resolve finishes a half-done rebase/merge (mode "continue" or "abort") and
-// then retries a normal sync. It is what you run after fixing conflict markers
-// by hand.
 func (e *Engine) Resolve(r *Repo, mode string) Result {
 	res := Result{Repo: r.Name}
 	op := InProgress(r.Path)
@@ -48,9 +45,9 @@ func (e *Engine) Resolve(r *Repo, mode string) Result {
 		return res
 	}
 	if op == "" {
-		// A recorded conflict was aborted, so there is nothing in the working
-		// tree to edit yet. Replay it and leave the markers in place so the
-		// user can fix them and run `syn resolve` again.
+		
+		
+		
 		if c, ok := e.State.Conflicts[r.Name]; ok {
 			if replayed, err := e.replay(r, c.Branch, mode); err != nil {
 				res.Err = err
@@ -66,9 +63,6 @@ func (e *Engine) Resolve(r *Repo, mode string) Result {
 	return e.Sync(r)
 }
 
-// replay restarts the integration that previously conflicted. It reports
-// whether it stopped on a conflict; when it did, the rebase/merge is left in
-// progress on purpose. mode "ours" or "theirs" lets git decide automatically.
 func (e *Engine) replay(r *Repo, branch, mode string) (bool, error) {
 	if branch == "" {
 		b, err := CurrentBranch(r.Path)
@@ -86,8 +80,8 @@ func (e *Engine) replay(r *Repo, branch, mode string) (bool, error) {
 	if e.Cfg.Strategy == "merge" {
 		args = []string{"merge", "--no-edit"}
 	}
-	// During a rebase git replays your commits onto the remote, so "ours" and
-	// "theirs" are swapped relative to intuition; map them back for the user.
+	
+	
 	switch mode {
 	case "ours":
 		args = append(args, pickX(e.Cfg.Strategy, "-Xtheirs", "-Xours"))
@@ -111,9 +105,6 @@ func pickX(strategy, rebaseOpt, mergeOpt string) string {
 	return rebaseOpt
 }
 
-// ForcePull throws away local divergence and makes the working tree identical
-// to the remote branch. Everything discarded is preserved on a backup branch
-// first, so this is recoverable.
 func (e *Engine) ForcePull(r *Repo) Result {
 	res := Result{Repo: r.Name}
 	branch, err := e.prepare(r)
@@ -131,7 +122,7 @@ func (e *Engine) ForcePull(r *Repo) Result {
 		res.Err = fmt.Errorf("%s/%s does not exist on the remote", r.Remote, branch)
 		return res
 	}
-	// Snapshot uncommitted work as a real commit so the backup branch holds it.
+	
 	if committed, err := e.autoCommit(r); err != nil {
 		res.Err = err
 		return res
@@ -151,8 +142,6 @@ func (e *Engine) ForcePull(r *Repo) Result {
 	return res
 }
 
-// ForcePush publishes the local branch over the remote one, using
-// --force-with-lease so it still refuses to clobber commits it has not seen.
 func (e *Engine) ForcePush(r *Repo) Result {
 	res := Result{Repo: r.Name}
 	branch, err := e.prepare(r)
@@ -185,7 +174,6 @@ func (e *Engine) ForcePush(r *Repo) Result {
 	return res
 }
 
-// Backups lists this repo's local safety branches, newest first.
 func Backups(r *Repo) ([]string, error) {
 	out, err := git(r.Path, "for-each-ref", "--sort=-creatordate", "--format=%(refname:short)", "refs/heads/syn/backup")
 	if err != nil {
@@ -197,8 +185,6 @@ func Backups(r *Repo) ([]string, error) {
 	return strings.Split(out, "\n"), nil
 }
 
-// RestoreBackup moves the current branch onto a previously saved backup
-// branch, after taking a fresh backup of where it is now.
 func (e *Engine) RestoreBackup(r *Repo, backupBranch string) error {
 	branch, err := e.prepare(r)
 	if err != nil {
@@ -220,10 +206,6 @@ func (e *Engine) RestoreBackup(r *Repo, backupBranch string) error {
 	return nil
 }
 
-// PruneBackups deletes local (and, when they are pushed, remote) backup
-// branches older than days. A negative days falls back to the configured
-// keep_backup_days; a configured value of zero disables pruning entirely,
-// while an explicit days of zero deletes every backup.
 func (e *Engine) PruneBackups(r *Repo, days int) (int, error) {
 	if days < 0 {
 		days = e.Cfg.KeepBackupDays

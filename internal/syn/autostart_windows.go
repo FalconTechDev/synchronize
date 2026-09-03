@@ -16,12 +16,8 @@ const (
 	taskShutdown = "Synchronize Shutdown Push"
 )
 
-// logonTrigger fires the watcher when the user signs in, which on a normal
-// desktop is effectively "when the computer starts".
 const logonTrigger = `<LogonTrigger><Enabled>true</Enabled></LogonTrigger>`
 
-// shutdownTrigger listens for event 1074 in the System log, which Windows
-// writes the moment a shutdown or restart is initiated.
 const shutdownTrigger = `<EventTrigger><Enabled>true</Enabled><Subscription>&lt;QueryList&gt;&lt;Query Id="0" Path="System"&gt;&lt;Select Path="System"&gt;*[System[Provider[@Name='User32'] and EventID=1074]]&lt;/Select&gt;&lt;/Query&gt;&lt;/QueryList&gt;</Subscription></EventTrigger>`
 
 func taskXML(desc, trigger, exe, args string) string {
@@ -68,8 +64,6 @@ func xmlEscape(s string) string {
 	return strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", `"`, "&quot;").Replace(s)
 }
 
-// writeUTF16 writes the XML as UTF-16LE with a BOM, which is what schtasks
-// /XML expects.
 func writeUTF16(path, content string) error {
 	units := utf16.Encode([]rune(content))
 	buf := make([]byte, 0, len(units)*2+2)
@@ -95,8 +89,6 @@ func registerTask(name, desc, trigger, exe, args string) error {
 	return nil
 }
 
-// InstallAutostart registers a logon task running the watcher and a
-// shutdown-triggered task that pushes whatever is still local.
 func InstallAutostart() error {
 	exe, err := ExePath()
 	if err != nil {
@@ -118,7 +110,6 @@ func InstallAutostart() error {
 	return nil
 }
 
-// UninstallAutostart removes both scheduled tasks.
 func UninstallAutostart() error {
 	var firstErr error
 	for _, name := range []string{taskWatch, taskShutdown} {
@@ -136,7 +127,6 @@ func UninstallAutostart() error {
 	return firstErr
 }
 
-// AutostartStatus reports whether the tasks exist.
 func AutostartStatus() string {
 	var b strings.Builder
 	for _, name := range []string{taskWatch, taskShutdown} {
@@ -149,7 +139,6 @@ func AutostartStatus() string {
 	return b.String()
 }
 
-// StartWatcherNow launches the installed watcher task immediately.
 func StartWatcherNow() error {
 	out, err := run("schtasks", "/Run", "/TN", taskWatch)
 	if err != nil {

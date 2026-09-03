@@ -5,7 +5,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -78,9 +77,10 @@ OTHER
   config                 print the current configuration
   config set <k> <v>     backup, push_backup, strategy, interval_minutes,
                          notify, commit_template, keep_backup_days
-  config telegram <token> <chat_id>    where conflict alerts go
-  config test            send a test notification
   log [n]                last n log lines (default 40)
+  log --live             stream the log in real time
+  diff [repo]            show uncommitted diff
+  serve [--addr :7391]   web dashboard with live log and pull/push buttons
   doctor                 check that everything is wired up
   version                print the version
 
@@ -88,6 +88,14 @@ GLOBAL FLAGS
   --all       act on every enabled repository
   --quiet     no stdout (the log file is still written)
   -v          verbose
+
+COMING SOON
+  syn send <file> @<repo>   send files to another machine via a shared repo
+  syn receive <repo>        watch for incoming files and copy them locally
+  syn notify <message>      OS toast notifications
+  syn encrypt <repo>        per-repo AES-256 encryption via git filters
+  syn tmp <files...>        one-shot file transfer via a throwaway repo
+  config telegram ...       conflict alerts via Telegram bot
 `
 
 func main() {
@@ -186,9 +194,6 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		return cmdInit(cfg, arg(0))
 	case "repo":
 		return cmdRepo(cfg, creds, engine, rest, has, values)
-	case "tmp":
-		return cmdTmp(cfg, creds, rest, has, values)
-
 	case "log":
 		if has("--live") || has("-f") {
 			stop := make(chan struct{})
@@ -227,51 +232,13 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		}
 		return nil
 
-	case "send":
-		return cmdSend(cfg, creds, engine, rest, values)
-
-	case "encrypt":
-		return cmdEncrypt(cfg, creds, rest, values)
-
 	case "tray":
 		syn.RunTray(cfg, engine)
 		return nil
 
-	case "notify":
-		body := "уведомления работают ✓"
-		if len(rest) > 0 {
-			body = strings.Join(rest, " ")
-		}
-		syn.ToastNotify("synchronize", body)
-		fmt.Println("уведомление отправлено")
+	case "send", "receive", "encrypt", "notify", "tmp":
+		fmt.Printf("syn %s is coming soon — not available yet\n", cmd)
 		return nil
-
-	case "receive":
-		
-		if arg(0) == "" {
-			return fmt.Errorf("usage: syn receive <repo-name> [--dest ./folder]")
-		}
-		repo := cfg.Find(arg(0))
-		if repo == nil {
-			return fmt.Errorf("repo %q not registered", arg(0))
-		}
-		dest := values["--dest"]
-		if dest == "" {
-			dest = "."
-		}
-		abs, err := filepath.Abs(dest)
-		if err != nil {
-			return err
-		}
-		stop := make(chan struct{})
-		
-		go func() {
-			ch := make(chan os.Signal, 1)
-			signal.Notify(ch, os.Interrupt)
-			<-ch
-			close(stop)
-		}()
-		return engine.ReceiveFiles(repo, abs, stop)
 
 	case "serve":
 		addr := values["--addr"]
@@ -957,24 +924,11 @@ func cmdConfig(cfg *syn.Config, rest []string) error {
 		fmt.Printf("keep_backup_days   %d\n", cfg.KeepBackupDays)
 		fmt.Printf("notify            %s\n", cfg.Notify)
 		fmt.Printf("commit_template   %s\n", cfg.CommitTemplate)
-		fmt.Printf("telegram          %s\n", map[bool]string{true: "configured", false: "not configured"}[cfg.Telegram.Token != "" && cfg.Telegram.ChatID != ""])
 		return nil
 	}
 	switch rest[0] {
-	case "telegram":
-		if len(rest) < 3 {
-			return fmt.Errorf("usage: syn config telegram <bot-token> <chat-id>")
-		}
-		cfg.Telegram.Token = rest[1]
-		cfg.Telegram.ChatID = rest[2]
-		if err := cfg.Save(); err != nil {
-			return err
-		}
-		syn.Info("telegram notifications configured")
-		return nil
-	case "test":
-		syn.NewNotifier(cfg).Send("conflict", "synchronize: тестовое уведомление с "+mustHost())
-		syn.Info("test notification sent (check Telegram; see the log if nothing arrived)")
+	case "telegram", "test":
+		fmt.Printf("syn config %s is coming soon — not available yet\n", rest[0])
 		return nil
 	case "set":
 		if len(rest) < 3 {

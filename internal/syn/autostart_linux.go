@@ -19,9 +19,6 @@ func unitPath() (string, error) {
 	return filepath.Join(home, ".config", "systemd", "user", unitName), nil
 }
 
-// InstallAutostart writes a systemd --user unit. systemd starts it at login
-// and sends SIGTERM at shutdown, which makes the watcher push before the
-// machine goes down.
 func InstallAutostart() error {
 	exe, err := ExePath()
 	if err != nil {
@@ -64,7 +61,6 @@ WantedBy=default.target
 	return nil
 }
 
-// UninstallAutostart disables and removes the unit.
 func UninstallAutostart() error {
 	_, _ = run("systemctl", "--user", "disable", "--now", unitName)
 	path, err := unitPath()
@@ -79,7 +75,6 @@ func UninstallAutostart() error {
 	return nil
 }
 
-// AutostartStatus reports the unit state.
 func AutostartStatus() string {
 	out, _ := run("systemctl", "--user", "is-enabled", unitName)
 	state := strings.TrimSpace(out)
@@ -90,7 +85,6 @@ func AutostartStatus() string {
 	return fmt.Sprintf("  %-28s %s (%s)\n", unitName, state, strings.TrimSpace(active))
 }
 
-// StartWatcherNow starts the unit.
 func StartWatcherNow() error {
 	if out, err := run("systemctl", "--user", "start", unitName); err != nil {
 		return fmt.Errorf("%s", strings.TrimSpace(out))

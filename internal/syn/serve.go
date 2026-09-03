@@ -8,8 +8,6 @@ import (
 	"time"
 )
 
-// Serve starts an HTTP dashboard on addr (e.g. "127.0.0.1:7391").
-// It exposes a web UI and a small JSON API.
 func (e *Engine) Serve(cfg *Config, addr string) error {
 	if addr == "" {
 		addr = "127.0.0.1:7391"
@@ -89,7 +87,7 @@ func (e *Engine) Serve(cfg *Config, addr string) error {
 		writeResult(w, res)
 	})
 	mux.HandleFunc("/api/log", func(w http.ResponseWriter, r *http.Request) {
-		// Server-Sent Events stream for live log tail.
+		
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")
@@ -109,7 +107,11 @@ func (e *Engine) Serve(cfg *Config, addr string) error {
 		pr.Close()
 	})
 
-	Info("dashboard at http://%s", addr)
+	display := addr
+	if strings.HasPrefix(addr, ":") {
+		display = "localhost" + addr
+	}
+	Info("dashboard at http://%s/", display)
 	return http.ListenAndServe(addr, mux)
 }
 
@@ -127,7 +129,6 @@ func writeResult(w http.ResponseWriter, res Result) {
 	json.NewEncoder(w).Encode(o)
 }
 
-// lineWriter wraps a callback into an io.ReadCloser so LiveTail can write to it.
 type lineWriter struct {
 	ch   chan string
 	done chan struct{}

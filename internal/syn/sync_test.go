@@ -7,8 +7,6 @@ import (
 	"testing"
 )
 
-// testEnv builds a bare "GitHub" remote plus two clones standing in for two
-// machines, with SYNCHRONIZE_HOME pointed at a temp dir.
 type testEnv struct {
 	t      *testing.T
 	dir    string
@@ -101,7 +99,7 @@ func TestPullKeepsUncommittedWork(t *testing.T) {
 	if res := env.engine.Push(env.a); !res.OK() {
 		t.Fatalf("push: %v", res.Err)
 	}
-	// machine-b has unrelated work in progress while pulling.
+	
 	env.write(env.b, "scratch.txt", "work in progress\n")
 
 	if res := env.engine.Pull(env.b); !res.OK() {
@@ -153,7 +151,7 @@ func TestResolveReplaysThenCompletes(t *testing.T) {
 		t.Fatal("expected a conflict")
 	}
 
-	// First resolve replays the conflict into the working tree.
+	
 	if res := env.engine.Resolve(env.a, "continue"); res.Err == nil {
 		t.Fatal("expected the replayed conflict to be reported")
 	}
@@ -161,7 +159,7 @@ func TestResolveReplaysThenCompletes(t *testing.T) {
 		t.Fatal("expected conflict markers in the working tree")
 	}
 
-	// The user fixes it, and the second resolve finishes the sync.
+	
 	env.write(env.a, "file.txt", "base\nmerged\n")
 	if res := env.engine.Resolve(env.a, "continue"); !res.OK() {
 		t.Fatalf("resolve: %+v (%v)", res, res.Err)

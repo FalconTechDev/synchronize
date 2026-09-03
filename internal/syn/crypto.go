@@ -1,18 +1,5 @@
 package syn
 
-// Encryption for syn repos using git clean/smudge filters.
-//
-// How it works:
-//   - A 32-byte key is generated randomly and stored in
-//     ~/.synchronize/keys/<repo-name>.key (mode 0600, never committed).
-//   - git clean filter  (pre-commit): encrypts file bytes with AES-256-GCM.
-//   - git smudge filter (post-checkout): decrypts them.
-//   - The filter is registered via `git config` in the repo's .git/config
-//     and applied to all files via a .gitattributes rule.
-//
-// The encrypted format is:
-//   [4 bytes magic "SYN\x01"] [12 bytes nonce] [ciphertext]
-
 import (
 	"crypto/aes"
 	"crypto/cipher"
@@ -28,12 +15,10 @@ import (
 
 const cryptoMagic = "SYN\x01"
 
-// keyPath returns the path to the key file for a repo name.
 func keyPath(repoName string) string {
 	return filepath.Join(Home(), "keys", repoName+".key")
 }
 
-// GenerateKey creates a new random 32-byte key and saves it.
 func GenerateKey(repoName string) ([]byte, error) {
 	dir := filepath.Join(Home(), "keys")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -50,7 +35,6 @@ func GenerateKey(repoName string) ([]byte, error) {
 	return key, nil
 }
 
-// LoadKey reads the stored key for repoName.
 func LoadKey(repoName string) ([]byte, error) {
 	path := keyPath(repoName)
 	raw, err := os.ReadFile(path)
@@ -64,7 +48,6 @@ func LoadKey(repoName string) ([]byte, error) {
 	return key, nil
 }
 
-// ExportKey returns the hex-encoded key so the user can share it with another machine.
 func ExportKey(repoName string) (string, error) {
 	key, err := LoadKey(repoName)
 	if err != nil {
@@ -73,7 +56,6 @@ func ExportKey(repoName string) (string, error) {
 	return hex.EncodeToString(key), nil
 }
 
-// ImportKey decodes a hex key string and saves it for repoName.
 func ImportKey(repoName, hexKey string) error {
 	key, err := hex.DecodeString(strings.TrimSpace(hexKey))
 	if err != nil || len(key) != 32 {
@@ -86,7 +68,6 @@ func ImportKey(repoName, hexKey string) error {
 	return os.WriteFile(keyPath(repoName), []byte(hexKey+"\n"), 0o600)
 }
 
-// Encrypt reads plaintext from r, encrypts with key, writes ciphertext to w.
 func Encrypt(w io.Writer, r io.Reader, key []byte) error {
 	plain, err := io.ReadAll(r)
 	if err != nil {
@@ -109,9 +90,6 @@ func Encrypt(w io.Writer, r io.Reader, key []byte) error {
 	return err
 }
 
-// Decrypt reads ciphertext from r, decrypts with key, writes plaintext to w.
-// If r does not start with the magic bytes it is passed through unchanged
-// (allows mixing encrypted and plain files in the same repo).
 func Decrypt(w io.Writer, r io.Reader, key []byte) error {
 	data, err := io.ReadAll(r)
 	if err != nil {
@@ -142,8 +120,6 @@ func Decrypt(w io.Writer, r io.Reader, key []byte) error {
 	return err
 }
 
-// SetupEncryption installs the git clean/smudge filters in a repo and adds
-// a catch-all .gitattributes rule. Call once after cloning/creating the repo.
 func SetupEncryption(repoPath, repoName string) error {
 	synBin, err := os.Executable()
 	if err != nil {
@@ -159,7 +135,7 @@ func SetupEncryption(repoPath, repoName string) error {
 			return err
 		}
 	}
-	// Add .gitattributes if it doesn't already have our rule.
+	
 	gaPath := filepath.Join(repoPath, ".gitattributes")
 	rule := "* filter=syn-crypt\n"
 	existing, _ := os.ReadFile(gaPath)

@@ -10,58 +10,54 @@ import (
 	"strings"
 )
 
-// Repo is a single repository tracked by synchronize.
 type Repo struct {
 	Name    string `json:"name"`
 	Path    string `json:"path"`
 	Remote  string `json:"remote"`
-	Branch  string `json:"branch"` // empty = whatever branch is checked out
+	Branch  string `json:"branch"` 
 	Enabled bool   `json:"enabled"`
 
-	// GitHub-specific (optional).
-	GithubSlug string `json:"github_slug,omitempty"` // "owner/repo"
+	
+	GithubSlug string `json:"github_slug,omitempty"` 
 	Private    bool   `json:"private,omitempty"`
-	Temp       bool   `json:"temp,omitempty"` // created by syn tmp; deleted on drop
+	Temp       bool   `json:"temp,omitempty"` 
 
-	// Per-repo overrides (0/empty = use global).
+	
 	IntervalMinutes int `json:"interval_minutes,omitempty"`
 
-	// File-level rules. Both support standard glob patterns.
-	// Empty Include + empty Exclude = sync everything (normal git behaviour).
-	Include []string `json:"include,omitempty"` // only these paths
-	Exclude []string `json:"exclude,omitempty"` // never these paths
+	
+	
+	Include []string `json:"include,omitempty"` 
+	Exclude []string `json:"exclude,omitempty"` 
 }
 
-// Telegram holds optional notification credentials.
 type Telegram struct {
 	Token  string `json:"token"`
 	ChatID string `json:"chat_id"`
 }
 
-// Config is the on-disk configuration, shared by the CLI and the daemon.
 type Config struct {
 	Repos           []Repo   `json:"repos"`
 	Telegram        Telegram `json:"telegram"`
-	Backup          bool     `json:"backup"`           // create syn/backup/... branches before rewriting history
-	PushBackup      bool     `json:"push_backup"`      // also push those branches to the remote
-	Strategy        string   `json:"strategy"`         // "rebase" or "merge"
-	IntervalMinutes int      `json:"interval_minutes"` // global watch loop period
-	Notify          string   `json:"notify"`           // "never" | "conflict" | "always"
-	CommitTemplate  string   `json:"commit_template"`  // {host} and {time} are substituted
-	KeepBackupDays  int      `json:"keep_backup_days"` // prune local backup branches older than this
+	Backup          bool     `json:"backup"`           
+	PushBackup      bool     `json:"push_backup"`      
+	Strategy        string   `json:"strategy"`         
+	IntervalMinutes int      `json:"interval_minutes"` 
+	Notify          string   `json:"notify"`           
+	CommitTemplate  string   `json:"commit_template"`  
+	KeepBackupDays  int      `json:"keep_backup_days"` 
 
-	// GitHub OAuth App client_id. Set via `syn auth setup <client_id>`.
-	// Leave empty to use PAT-only login.
+	
+	
 	GitHubClientID string `json:"github_client_id,omitempty"`
 
-	// NotifySync sends OS toast on every successful sync (not just conflicts).
+	
 	NotifySync bool `json:"notify_sync,omitempty"`
 
-	// ServeAddr is the listen address for `syn serve` (default "127.0.0.1:7391").
+	
 	ServeAddr string `json:"serve_addr,omitempty"`
 }
 
-// IntervalFor returns the sync interval for r, falling back to the global one.
 func (c *Config) IntervalFor(r *Repo) int {
 	if r.IntervalMinutes > 0 {
 		return r.IntervalMinutes
@@ -69,7 +65,6 @@ func (c *Config) IntervalFor(r *Repo) int {
 	return c.IntervalMinutes
 }
 
-// DefaultConfig returns the configuration used before the user touches anything.
 func DefaultConfig() *Config {
 	return &Config{
 		Backup:          true,
@@ -82,7 +77,6 @@ func DefaultConfig() *Config {
 	}
 }
 
-// Home is the directory holding config, state and logs.
 func Home() string {
 	if v := os.Getenv("SYNCHRONIZE_HOME"); v != "" {
 		return v
@@ -96,7 +90,6 @@ func Home() string {
 
 func configPath() string { return filepath.Join(Home(), "config.json") }
 
-// LoadConfig reads the config, filling in defaults for anything missing.
 func LoadConfig() (*Config, error) {
 	cfg := DefaultConfig()
 	b, err := os.ReadFile(configPath())
@@ -124,7 +117,6 @@ func LoadConfig() (*Config, error) {
 	return cfg, nil
 }
 
-// Save writes the config back to disk atomically.
 func (c *Config) Save() error {
 	if err := os.MkdirAll(Home(), 0o755); err != nil {
 		return err
@@ -140,7 +132,6 @@ func (c *Config) Save() error {
 	return os.Rename(tmp, configPath())
 }
 
-// Find returns the repo matching name or path, or nil.
 func (c *Config) Find(key string) *Repo {
 	key = strings.TrimSpace(key)
 	if key == "" {
@@ -159,8 +150,6 @@ func (c *Config) Find(key string) *Repo {
 	return nil
 }
 
-// Selected resolves the repos a command should act on. An empty key means
-// "every enabled repo".
 func (c *Config) Selected(key string) ([]*Repo, error) {
 	if key == "" {
 		var out []*Repo
@@ -181,7 +170,6 @@ func (c *Config) Selected(key string) ([]*Repo, error) {
 	return []*Repo{r}, nil
 }
 
-// EnabledRepos returns pointers to all enabled repos (used by the tray).
 func (c *Config) EnabledRepos() []*Repo {
 	var out []*Repo
 	for i := range c.Repos {
