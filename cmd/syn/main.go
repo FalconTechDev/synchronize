@@ -1283,20 +1283,29 @@ func cmdDoctor(e *syn.Engine, cfg *syn.Config) error {
 	}
 	fmt.Printf("  home:       %s\n", syn.Home())
 	fmt.Printf("  repos:      %d registered\n", len(cfg.Repos))
-	fmt.Printf("  telegram:   %s\n", map[bool]string{true: "configured", false: "not configured"}[cfg.Telegram.Token != ""])
 	fmt.Println("  autostart:")
 	fmt.Print(syn.AutostartStatus())
 
-	problems := 0
+	var problems []string
 	for i := range cfg.Repos {
 		st := e.Status(&cfg.Repos[i], false)
 		if st.Err != nil || st.Conflict != nil || st.InProgres != "" {
-			problems++
-			fmt.Print(st.String())
+			problems = append(problems, st.String())
 		}
 	}
-	if problems == 0 {
-		fmt.Println("  all repositories look healthy")
+
+	fmt.Println()
+	if len(problems) == 0 {
+		fmt.Println("  every repository looks healthy")
+		return nil
+	}
+	if len(problems) == 1 {
+		fmt.Print("  1 repository needs attention:\n\n")
+	} else {
+		fmt.Printf("  %d repositories need attention:\n\n", len(problems))
+	}
+	for _, p := range problems {
+		fmt.Print(p)
 	}
 	return nil
 }

@@ -131,9 +131,9 @@ func AutostartStatus() string {
 	var b strings.Builder
 	for _, name := range []string{taskWatch, taskShutdown} {
 		if _, err := run("schtasks", "/Query", "/TN", name); err != nil {
-			fmt.Fprintf(&b, "  %-28s not installed\n", name)
+			fmt.Fprintf(&b, "    %-28s not installed\n", name)
 		} else {
-			fmt.Fprintf(&b, "  %-28s installed\n", name)
+			fmt.Fprintf(&b, "    %-28s installed\n", name)
 		}
 	}
 	return b.String()

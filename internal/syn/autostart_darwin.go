@@ -78,9 +78,9 @@ func UninstallAutostart() error {
 func AutostartStatus() string {
 	out, err := run("launchctl", "list", agentLabel)
 	if err != nil || strings.TrimSpace(out) == "" {
-		return fmt.Sprintf("  %-28s not installed\n", agentLabel)
+		return fmt.Sprintf("    %-28s not installed\n", agentLabel)
 	}
-	return fmt.Sprintf("  %-28s installed\n", agentLabel)
+	return fmt.Sprintf("    %-28s installed\n", agentLabel)
 }
 
 func StartWatcherNow() error {

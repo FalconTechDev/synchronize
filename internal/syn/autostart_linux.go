@@ -82,7 +82,7 @@ func AutostartStatus() string {
 		state = "not installed"
 	}
 	active, _ := run("systemctl", "--user", "is-active", unitName)
-	return fmt.Sprintf("  %-28s %s (%s)\n", unitName, state, strings.TrimSpace(active))
+	return fmt.Sprintf("    %-28s %s (%s)\n", unitName, state, strings.TrimSpace(active))
 }
 
 func StartWatcherNow() error {
