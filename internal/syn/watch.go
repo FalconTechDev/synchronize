@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -72,6 +73,19 @@ func (e *Engine) watchLoop(repos []*Repo, externalStop <-chan struct{}) {
 
 	sigStop := make(chan os.Signal, 1)
 	signal.Notify(sigStop, os.Interrupt, syscall.SIGTERM)
+
+	// Publishing has to finish before the machine goes down, otherwise the
+	// work stays on this disk and the other machine never sees it.
+	var shutdownOnce sync.Once
+	OnShutdown(func() {
+		shutdownOnce.Do(func() {
+			HoldShutdown("synchronize is publishing your work")
+			defer ReleaseShutdown()
+			Info("shutdown requested: publishing before the machine goes down")
+			e.RunAll(repos, e.Push)
+			Info("everything published - letting the shutdown continue")
+		})
+	})
 
 	
 	TrayMarkSyncing(true)

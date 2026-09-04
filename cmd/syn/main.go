@@ -46,6 +46,7 @@ REPOSITORIES
   enable <repo>          include it in --all runs
   disable <repo>         exclude it from --all runs
   set <repo> <k> <v>     change name, remote, branch, interval
+                         interval takes minutes or a duration: 30m, 12h, 1d
 
 FILE RULES  (which files to sync; default: everything)
   files <repo>           show active include/exclude patterns
@@ -57,11 +58,14 @@ INTERACTIVE
   shell                  open a session that stays until you type exit
 
 SYNCING
-  pull  [repo] [--force]    bring remote changes in    (--force: reset to remote)
-  push  [repo] [--force]    commit + publish local work (--force: force-with-lease)
-  sync  [repo]              pull, then push
-  status [repo] [--fetch]   show what would happen
-  watch [repo]              run the loop: sync at per-repo interval, push on exit
+  pull  <repo|all> [--force]  bring remote changes in  (--force: reset to remote)
+  push  <repo|all> [--force]  commit + publish local work (--force: force-with-lease)
+  sync  <repo|all>            pull, then push
+  status <repo|all> [--fetch] show what would happen
+
+  A repository has to be named. Pass "all" to act on every enabled one.
+  watch <repo|all>          sync at the repo interval; publishes before the
+                            machine shuts down and holds shutdown until it has
 
 HOOKS  (run a command on THIS machine after a sync changed something)
   hook ls                          show configured hooks
@@ -193,6 +197,33 @@ func run(args []string) error {
 	}
 
 	return dispatch(cmd, rest, arg, selector, has, values)
+}
+
+// parseMinutes accepts a bare number of minutes or a duration such as
+// 30m, 12h or 1d, because typing 720 for twelve hours invites mistakes.
+func parseMinutes(v string) (int, error) {
+	v = strings.TrimSpace(strings.ToLower(v))
+	if v == "" {
+		return 0, fmt.Errorf("empty value")
+	}
+	if n, err := strconv.Atoi(v); err == nil {
+		return n, nil
+	}
+	if strings.HasSuffix(v, "d") {
+		n, err := strconv.Atoi(strings.TrimSuffix(v, "d"))
+		if err != nil {
+			return 0, err
+		}
+		return n * 24 * 60, nil
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		return 0, err
+	}
+	if d < time.Minute {
+		return 0, fmt.Errorf("%s is shorter than a minute", v)
+	}
+	return int(d.Minutes()), nil
 }
 
 func needsGit(cmd string) bool {
@@ -544,9 +575,9 @@ func cmdSet(cfg *syn.Config, key, field, value string) error {
 	case "branch":
 		r.Branch = value
 	case "interval":
-		n, err := strconv.Atoi(value)
+		n, err := parseMinutes(value)
 		if err != nil || n < 0 {
-			return fmt.Errorf("interval must be a non-negative number of minutes (0 = use global)")
+			return fmt.Errorf("interval must be minutes, or a duration like 30m, 12h, 1d (0 = use the global setting)")
 		}
 		r.IntervalMinutes = n
 	default:
@@ -1174,9 +1205,9 @@ func applyConfigKey(cfg *syn.Config, key, value string) error {
 		}
 		cfg.Strategy = value
 	case "interval_minutes":
-		n, err := strconv.Atoi(value)
+		n, err := parseMinutes(value)
 		if err != nil || n <= 0 {
-			return fmt.Errorf("interval_minutes must be a positive number")
+			return fmt.Errorf("interval_minutes must be minutes, or a duration like 30m, 12h, 1d")
 		}
 		cfg.IntervalMinutes = n
 	case "keep_backup_days":
