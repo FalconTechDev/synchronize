@@ -92,6 +92,7 @@ OTHER
   config                 print the current configuration
   config set <k> <v>     backup, push_backup, strategy, interval_minutes,
                          notify, commit_template, keep_backup_days
+  notify [text]          send yourself a desktop notification
   log [n]                last n log lines (default 40)
   log --live             stream the log in real time
   diff [repo]            show uncommitted diff
@@ -107,7 +108,6 @@ GLOBAL FLAGS
 COMING SOON
   syn send <file> @<repo>   send files to another machine via a shared repo
   syn receive <repo>        watch for incoming files and copy them locally
-  syn notify <message>      OS toast notifications
   syn encrypt <repo>        per-repo AES-256 encryption via git filters
   syn tmp <files...>        one-shot file transfer via a throwaway repo
   config telegram ...       conflict alerts via Telegram bot
@@ -285,7 +285,19 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		syn.RunTray(cfg, engine)
 		return nil
 
-	case "send", "receive", "encrypt", "notify", "tmp":
+	case "notify":
+		title, body := "synchronize", strings.Join(rest, " ")
+		if body == "" {
+			body = "notifications are working"
+		}
+		if i := strings.Index(body, ": "); i > 0 && i < 40 {
+			title, body = body[:i], body[i+2:]
+		}
+		syn.ToastNotify(title, body)
+		syn.Info("notification sent")
+		return nil
+
+	case "send", "receive", "encrypt", "tmp":
 		fmt.Printf("syn %s is coming soon — not available yet\n", cmd)
 		return nil
 
