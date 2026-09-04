@@ -309,7 +309,7 @@ var subcommands = map[string][]string{
 	"hook":   {"ls", "add", "run", "clear", "timeout"},
 	"files":  {"include", "exclude", "clear"},
 	"config": {"set"},
-	"auto": {"on", "off"},
+	"auto": {"on", "off", "login", "watch", "shutdown"},
 }
 
 func matching(pool []string, prefix string) []string {

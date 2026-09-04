@@ -89,42 +89,57 @@ func registerTask(name, desc, trigger, exe, args string) error {
 	return nil
 }
 
-func InstallAutostart() error {
+// The two scheduled tasks are separate switches: one syncs when you log in,
+// the other publishes when the machine goes down. Whether the login task
+// keeps watching on a timer, or syncs once and exits, is a third choice.
+func EnableLogin(keepWatching bool) error {
 	exe, err := ExePath()
 	if err != nil {
 		return err
 	}
-	if err := registerTask(taskWatch,
-		"synchronize: keep repositories in sync with their remotes",
-		logonTrigger, exe, "watch --all --quiet"); err != nil {
+	args, desc := "sync --all --quiet", "synchronize: sync once when you log in"
+	if keepWatching {
+		args = "watch --all --quiet"
+		desc = "synchronize: keep repositories in sync while you are logged in"
+	}
+	if err := registerTask(taskWatch, desc, logonTrigger, exe, args); err != nil {
 		return err
 	}
-	Info("registered scheduled task %q (runs at logon)", taskWatch)
-
-	if err := registerTask(taskShutdown,
-		"synchronize: push local commits when Windows shuts down",
-		shutdownTrigger, exe, "push --all --quiet"); err != nil {
-		return err
-	}
-	Info("registered scheduled task %q (runs on shutdown)", taskShutdown)
 	return nil
 }
 
-func UninstallAutostart() error {
-	var firstErr error
-	for _, name := range []string{taskWatch, taskShutdown} {
-		if out, err := run("schtasks", "/Delete", "/TN", name, "/F"); err != nil {
-			if !strings.Contains(out, "cannot find") && !strings.Contains(out, "не найден") {
-				Warn("could not remove task %q: %s", name, strings.TrimSpace(out))
-				if firstErr == nil {
-					firstErr = err
-				}
-			}
-			continue
-		}
-		Info("removed scheduled task %q", name)
+func DisableLogin() error { return removeTask(taskWatch) }
+
+func EnableShutdown() error {
+	exe, err := ExePath()
+	if err != nil {
+		return err
 	}
-	return firstErr
+	return registerTask(taskShutdown,
+		"synchronize: publish local commits when Windows shuts down",
+		shutdownTrigger, exe, "push --all --quiet")
+}
+
+func DisableShutdown() error { return removeTask(taskShutdown) }
+
+func LoginEnabled() bool    { return taskExists(taskWatch) }
+func ShutdownEnabled() bool { return taskExists(taskShutdown) }
+
+func taskExists(name string) bool {
+	_, err := run("schtasks", "/Query", "/TN", name)
+	return err == nil
+}
+
+func removeTask(name string) error {
+	// Ask first: schtasks reports "not found" in the system language, so
+	// matching its text would only work on an English Windows.
+	if !taskExists(name) {
+		return nil
+	}
+	if out, err := run("schtasks", "/Delete", "/TN", name, "/F"); err != nil {
+		return fmt.Errorf("could not remove task %q: %s", name, strings.TrimSpace(out))
+	}
+	return nil
 }
 
 func AutostartStatus() string {

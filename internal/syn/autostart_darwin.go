@@ -19,7 +19,7 @@ func plistPath() (string, error) {
 	return filepath.Join(home, "Library", "LaunchAgents", agentLabel+".plist"), nil
 }
 
-func InstallAutostart() error {
+func EnableLogin(keepWatching bool) error {
 	exe, err := ExePath()
 	if err != nil {
 		return err
@@ -62,7 +62,7 @@ func InstallAutostart() error {
 	return nil
 }
 
-func UninstallAutostart() error {
+func DisableLogin() error {
 	path, err := plistPath()
 	if err != nil {
 		return err
@@ -89,3 +89,11 @@ func StartWatcherNow() error {
 	}
 	return nil
 }
+
+
+// darwin has a single user agent covering both jobs, so the shutdown half
+// follows whatever the login half is set to.
+func EnableShutdown() error  { return nil }
+func DisableShutdown() error { return nil }
+func LoginEnabled() bool     { return !strings.Contains(AutostartStatus(), "not installed") }
+func ShutdownEnabled() bool  { return LoginEnabled() }

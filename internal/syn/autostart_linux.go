@@ -19,7 +19,7 @@ func unitPath() (string, error) {
 	return filepath.Join(home, ".config", "systemd", "user", unitName), nil
 }
 
-func InstallAutostart() error {
+func EnableLogin(keepWatching bool) error {
 	exe, err := ExePath()
 	if err != nil {
 		return err
@@ -61,7 +61,7 @@ WantedBy=default.target
 	return nil
 }
 
-func UninstallAutostart() error {
+func DisableLogin() error {
 	_, _ = run("systemctl", "--user", "disable", "--now", unitName)
 	path, err := unitPath()
 	if err != nil {
@@ -91,3 +91,11 @@ func StartWatcherNow() error {
 	}
 	return nil
 }
+
+
+// linux has a single user agent covering both jobs, so the shutdown half
+// follows whatever the login half is set to.
+func EnableShutdown() error  { return nil }
+func DisableShutdown() error { return nil }
+func LoginEnabled() bool     { return !strings.Contains(AutostartStatus(), "not installed") }
+func ShutdownEnabled() bool  { return LoginEnabled() }

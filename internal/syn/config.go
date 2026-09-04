@@ -79,6 +79,10 @@ type Config struct {
 
 
 	Identity Identity `json:"identity,omitempty"`
+
+	// KeepWatching decides what the login task does: keep syncing on a timer,
+	// or sync once and exit.
+	KeepWatching bool `json:"keep_watching,omitempty"`
 }
 
 type Identity struct {

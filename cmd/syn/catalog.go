@@ -44,7 +44,7 @@ var catalog = map[string]cmdInfo{
 	"config": {"[set <key> <value>]", "show or change the settings", "Account and setup"},
 	"doctor": {"", "check that git, auth and the repos are wired up", "Account and setup"},
 
-	"auto":  {"[on|off]", "keep repositories in step by itself: login, timer, shutdown", "Running in the background"},
+	"auto":  {"[login|watch|shutdown] [on|off]", "three switches: sync at login, keep watching, publish at shutdown", "Running in the background"},
 	"start":     {"", "run the installed watcher right now", "Running in the background"},
 
 	// Long running - the shell sends these to a real terminal
@@ -76,8 +76,11 @@ var subHints = map[string]cmdInfo{
 	"files include": {"<repo> <glob>", "only sync paths that match", ""},
 	"files exclude": {"<repo> <glob>", "never sync paths that match", ""},
 	"files clear":   {"<repo>", "go back to syncing everything", ""},
-	"auto on":  {"", "watcher at login, sync on a timer, publish before shutdown", ""},
-	"auto off": {"", "stop all of it; nothing syncs on its own", ""},
+	"auto on":       {"", "turn on all three at once", ""},
+	"auto login":    {"<on|off>", "sync once when you log in", ""},
+	"auto watch":    {"<on|off|30m>", "keep syncing while you work, and how often", ""},
+	"auto shutdown": {"<on|off>", "publish before the machine goes down", ""},
+	"auto off":      {"", "turn off all three", ""},
 	"config set":    {"<key> <value>", "keys: strategy, interval_minutes, backup, push_backup, notify, commit_template, keep_backup_days", ""},
 }
 

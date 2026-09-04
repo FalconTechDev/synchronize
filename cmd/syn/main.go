@@ -85,16 +85,15 @@ CONFLICTS
   prune <repo|all> [--days N]  delete safety branches older than N days
                            (default: keep_backup_days; --days 0 deletes all)
 
-AUTOMATIC SYNCING
-  auto on                let syn keep the repositories in step by itself
-  auto off               stop; you pull and push by hand again
-  auto                   show whether it is on, and what it does
-  start                  run the watcher right now without waiting for login
-
-  With it on: a watcher starts at login and syncs on a timer, and your work
-  is published before the machine shuts down - the shutdown waits for it.
-  The interval is interval_minutes (default 10). The installer offers to
-  switch this on for you.
+AUTOMATIC SYNCING  (three separate switches)
+  auto                   show which of the three are on
+  auto login on|off      sync once when you log in
+  auto watch on|off      after that, keep syncing while you work
+  auto watch 30m         same, and set how often (30m, 12h, 1d)
+  auto shutdown on|off   publish before the machine goes down, and hold
+                         the shutdown until that has finished
+  auto on|off            all three at once
+  start                  run the watcher now without waiting for login
 
 OTHER
   config                 print the current configuration
@@ -413,7 +412,7 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		return cmdPrune(engine, cfg, selector, days)
 
 	case "auto", "autostart", "install", "uninstall":
-		return cmdAutostart(cfg, cmd, rest)
+		return cmdAuto(cfg, cmd, rest)
 	case "start":
 		return syn.StartWatcherNow()
 
@@ -803,7 +802,17 @@ func cmdRepoAdd(cfg *syn.Config, creds *syn.Credentials, slug string, values map
 	}
 
 	if existing := cfg.Find(abs); existing != nil {
-		return fmt.Errorf("already registered as %q", existing.Name)
+		if syn.IsRepo(abs) {
+			return fmt.Errorf("already registered as %q", existing.Name)
+		}
+		// Registered, but the working tree is gone - this is the repair the
+		// error message tells people to run, so let it through.
+		syn.Info("%s is registered but no longer a git repository - cloning it again", existing.Name)
+		if entries, err := os.ReadDir(abs); err == nil && len(entries) > 0 {
+			return fmt.Errorf("%s still has files in it\n"+
+				"        move or delete them first, then run this again\n"+
+				"        (or stop tracking it with: syn remove %s)", abs, existing.Name)
+		}
 	}
 
 	
@@ -1270,84 +1279,144 @@ func truthy(v string) bool {
 	return false
 }
 
-// cmdAutostart is the one place that turns background syncing on and off.
-// install and uninstall are kept as the older names for the same thing.
-func cmdAutostart(cfg *syn.Config, cmd string, rest []string) error {
-	action := ""
+// cmdAuto keeps the three background behaviours apart, because they are
+// separate decisions: syncing when you sit down, keeping up while you work,
+// and publishing before the machine goes down.
+func cmdAuto(cfg *syn.Config, cmd string, rest []string) error {
 	switch cmd {
 	case "install":
-		action = "on"
+		rest = []string{"on"}
 	case "uninstall":
-		action = "off"
-	default:
-		if len(rest) > 0 {
-			action = strings.ToLower(rest[0])
-		}
+		rest = []string{"off"}
 	}
 
-	switch action {
-	case "on", "enable", "yes":
-		if len(cfg.EnabledRepos()) == 0 {
-			return fmt.Errorf("nothing to sync yet - add a repository first with `syn repo add owner/name`")
-		}
-		if err := syn.InstallAutostart(); err != nil {
-			return err
-		}
-		fmt.Println()
-		fmt.Println("  Automatic syncing is ON.")
-		describeAuto(cfg)
-		return nil
-
-	case "off", "disable", "no":
-		if err := syn.UninstallAutostart(); err != nil {
-			return err
-		}
-		fmt.Println()
-		fmt.Println("  Automatic syncing is OFF.")
-		fmt.Println("  Nothing syncs on its own now - you pull and push by hand.")
-		fmt.Println("  Turn it back on with: syn auto on")
-		return nil
-
-	case "", "status":
-		fmt.Println()
-		if syn.AutostartInstalled() {
-			fmt.Println("  Automatic syncing is ON.")
-			describeAuto(cfg)
-		} else {
-			fmt.Println("  Automatic syncing is OFF.")
-			fmt.Println("  Nothing syncs on its own - you pull and push by hand.")
-			fmt.Println()
-			fmt.Println("  Turn it on with: syn auto on")
-		}
-		return nil
+	if len(rest) == 0 {
+		return showAuto(cfg)
 	}
-	return fmt.Errorf("say `syn auto on`, `syn auto off`, or `syn auto` to see the state")
+
+	what := strings.ToLower(rest[0])
+	value := ""
+	if len(rest) > 1 {
+		value = strings.ToLower(rest[1])
+	}
+
+	// `auto on` / `auto off` still turn everything on or off at once.
+	if on, ok := parseSwitch(what); ok {
+		return setAuto(cfg, on, on, on)
+	}
+
+	switch what {
+	case "login", "startup":
+		on, ok := parseSwitch(value)
+		if !ok {
+			return fmt.Errorf("say `syn auto login on` or `syn auto login off`")
+		}
+		return setAuto(cfg, on, cfg.KeepWatching, syn.ShutdownEnabled())
+
+	case "shutdown":
+		on, ok := parseSwitch(value)
+		if !ok {
+			return fmt.Errorf("say `syn auto shutdown on` or `syn auto shutdown off`")
+		}
+		return setAuto(cfg, syn.LoginEnabled(), cfg.KeepWatching, on)
+
+	case "watch":
+		if on, ok := parseSwitch(value); ok {
+			return setAuto(cfg, syn.LoginEnabled() || on, on, syn.ShutdownEnabled())
+		}
+		if value == "" {
+			return fmt.Errorf("say `syn auto watch on`, `syn auto watch off`, or an interval like `syn auto watch 30m`")
+		}
+		mins, err := parseMinutes(value)
+		if err != nil || mins <= 0 {
+			return fmt.Errorf("interval must be minutes, or a duration like 30m, 12h, 1d")
+		}
+		cfg.IntervalMinutes = mins
+		if err := cfg.Save(); err != nil {
+			return err
+		}
+		return setAuto(cfg, true, true, syn.ShutdownEnabled())
+	}
+	return fmt.Errorf("say `syn auto`, or one of: auto on | auto off | auto login on|off | auto shutdown on|off | auto watch on|off|<interval>")
 }
 
-// describeAuto spells out the three separate things that get switched on,
-// because "automatic" on its own does not say what happens when.
-func describeAuto(cfg *syn.Config) {
-	rows := [][2]string{
-		{"At login", "a watcher starts in the background"},
-		{"Every " + humanMinutes(cfg.IntervalMinutes), "it pulls what is new and publishes what you wrote"},
-		{"At shutdown", "it publishes anything left, and holds the shutdown until that has finished"},
+func parseSwitch(v string) (bool, bool) {
+	switch v {
+	case "on", "enable", "yes", "true":
+		return true, true
+	case "off", "disable", "no", "false":
+		return false, true
 	}
-	width := 0
-	for _, r := range rows {
-		if n := len(r[0]); n > width {
-			width = n
+	return false, false
+}
+
+func setAuto(cfg *syn.Config, login, keepWatching, shutdown bool) error {
+	if (login || shutdown) && len(cfg.EnabledRepos()) == 0 {
+		return fmt.Errorf("nothing to sync yet - add a repository first with `syn repo add owner/name`")
+	}
+
+	if login {
+		if err := syn.EnableLogin(keepWatching); err != nil {
+			return err
 		}
+	} else if err := syn.DisableLogin(); err != nil {
+		return err
+	}
+
+	if shutdown {
+		if err := syn.EnableShutdown(); err != nil {
+			return err
+		}
+	} else if err := syn.DisableShutdown(); err != nil {
+		return err
+	}
+
+	if cfg.KeepWatching != keepWatching {
+		cfg.KeepWatching = keepWatching
+		if err := cfg.Save(); err != nil {
+			return err
+		}
+	}
+	return showAuto(cfg)
+}
+
+func showAuto(cfg *syn.Config) error {
+	login := syn.LoginEnabled()
+	shutdown := syn.ShutdownEnabled()
+	watching := login && cfg.KeepWatching
+
+	mark := func(on bool) string {
+		if on {
+			return "on "
+		}
+		return "off"
 	}
 
 	fmt.Println()
-	for _, r := range rows {
-		fmt.Printf("  %-*s   %s\n", width, r[0], r[1])
+	fmt.Printf("  login      %s   %s\n", mark(login), pickText(login,
+		"sync once when you log in",
+		"nothing happens when you log in"))
+	fmt.Printf("  watch      %s   %s\n", mark(watching), pickText(watching,
+		"then keep syncing every "+humanMinutes(cfg.IntervalMinutes),
+		"no repeated syncing while you work"))
+	fmt.Printf("  shutdown   %s   %s\n", mark(shutdown), pickText(shutdown,
+		"publish before the machine goes down, and hold it until done",
+		"the machine may shut down with your work unpublished"))
+	fmt.Println()
+
+	if len(cfg.Repos) > 0 && (login || shutdown) {
+		fmt.Printf("  Covers: %s\n\n", strings.Join(repoNames(), ", "))
 	}
-	fmt.Println()
-	fmt.Printf("  Watching: %s\n", strings.Join(repoNames(), ", "))
-	fmt.Println()
-	fmt.Println("  Change how often it looks:  syn config set interval_minutes 30m")
-	fmt.Println("  Turn it off with:           syn auto off")
+	fmt.Println("  syn auto login on|off      syn auto watch on|off|30m")
+	fmt.Println("  syn auto shutdown on|off   syn auto on|off  (all three)")
+	return nil
+}
+
+func pickText(cond bool, yes, no string) string {
+	if cond {
+		return yes
+	}
+	return no
 }
 
 func cmdDoctor(e *syn.Engine, cfg *syn.Config) error {

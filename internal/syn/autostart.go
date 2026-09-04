@@ -4,7 +4,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 )
 
 func ExePath() (string, error) {
@@ -23,7 +22,20 @@ func run(name string, args ...string) (string, error) {
 	return string(out), err
 }
 
-// AutostartInstalled reports whether background syncing is currently set up.
-func AutostartInstalled() bool {
-	return !strings.Contains(AutostartStatus(), "not installed")
+// AutostartInstalled reports whether anything at all runs on its own.
+func AutostartInstalled() bool { return LoginEnabled() || ShutdownEnabled() }
+
+// InstallAutostart and UninstallAutostart are the older all-or-nothing names.
+func InstallAutostart() error {
+	if err := EnableLogin(true); err != nil {
+		return err
+	}
+	return EnableShutdown()
+}
+
+func UninstallAutostart() error {
+	if err := DisableLogin(); err != nil {
+		return err
+	}
+	return DisableShutdown()
 }
