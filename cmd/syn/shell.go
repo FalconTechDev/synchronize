@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -18,60 +19,6 @@ const (
 	cErr   = "\033[38;5;203m"
 	cInfo  = "\033[38;5;75m"
 )
-
-var shellTopics = []struct {
-	Title    string
-	Commands [][2]string
-}{
-	{"Syncing", [][2]string{
-		{"pull <repo|all>", "bring remote changes in"},
-		{"push <repo|all>", "commit and publish local work"},
-		{"sync <repo|all>", "pull, then push"},
-		{"status <repo|all>", "show what would happen"},
-		{"diff <repo|all>", "show uncommitted changes"},
-	}},
-	{"Repositories", [][2]string{
-		{"ls", "list registered repositories"},
-		{"init [path]", "register the repo at path"},
-		{"repo add <owner/repo>", "clone from GitHub and register"},
-		{"repo ls", "list your repositories on GitHub"},
-		{"enable / disable <repo>", "include in, or exclude from, all"},
-		{"remove <repo>", "stop tracking (files untouched)"},
-		{"set <repo> <k> <v>", "name, remote, branch, interval"},
-		{"files <repo>", "which paths to sync"},
-	}},
-	{"Hooks", [][2]string{
-		{"hook ls", "show configured hooks"},
-		{"hook add <repo> <event> <cmd>", "run a command after a sync"},
-		{"hook run <repo> <event>", "try a hook right now"},
-		{"hook clear <repo> [event]", "remove hooks"},
-		{"hook timeout <repo> <secs>", "how long a hook may run"},
-	}},
-	{"Conflicts and safety", [][2]string{
-		{"resolve <repo>", "replay the conflict into your tree"},
-		{"resolve <repo> --ours", "keep your side everywhere"},
-		{"resolve <repo> --theirs", "keep the remote side"},
-		{"resolve <repo> --abort", "give up on the rebase or merge"},
-		{"backups <repo>", "list safety branches"},
-		{"restore <repo> <ref>", "move the branch onto a safety branch"},
-		{"prune <repo|all> [--days N]", "delete old safety branches"},
-	}},
-	{"Account and setup", [][2]string{
-		{"auth login [--pat <token>]", "sign in to GitHub"},
-		{"auth status", "show who is signed in"},
-		{"auth logout", "forget the stored token"},
-		{"config", "print the current configuration"},
-		{"config set <k> <v>", "change a setting"},
-		{"doctor", "check that everything is wired up"},
-		{"version", "print the version"},
-	}},
-	{"This session", [][2]string{
-		{"help", "show this list"},
-		{"log [n] [--live]", "recent log lines"},
-		{"clear", "clear the screen"},
-		{"exit", "leave the shell"},
-	}},
-}
 
 // These keep running until stopped, so the shell points at a real terminal
 // rather than freezing the session.
@@ -92,7 +39,7 @@ func cmdShell() error {
 		cDim, cBold, cReset, cDim, cBold, cReset, cDim, cReset)
 
 	ed := newEditor()
-	commands := shellCommands()
+	commands := knownCommands()
 
 	for {
 		complete := func(partial string) ([]string, string) {
@@ -222,12 +169,42 @@ func printOverview() {
 }
 
 func printHelp() {
+	byGroup := map[string][]string{}
+	for name, info := range catalog {
+		if name == "list" {
+			continue
+		}
+		byGroup[info.Group] = append(byGroup[info.Group], name)
+	}
+
+	width := 0
+	for name, info := range catalog {
+		n := len(name)
+		if info.Args != "" {
+			n += 1 + len(info.Args)
+		}
+		if n > width {
+			width = n
+		}
+	}
+
 	fmt.Println()
-	for _, topic := range shellTopics {
-		fmt.Printf("%s%s%s\n", cBold, topic.Title, cReset)
-		for _, c := range topic.Commands {
-			fmt.Printf("  %s%-30s%s %s%s%s\n",
-				cAccent, c[0], cReset, cDim, c[1], cReset)
+	for _, group := range groupOrder {
+		names := byGroup[group]
+		if len(names) == 0 {
+			continue
+		}
+		sort.Strings(names)
+
+		fmt.Printf("%s%s%s\n", cBold, group, cReset)
+		for _, name := range names {
+			info := catalog[name]
+			usage := name
+			if info.Args != "" {
+				usage += " " + info.Args
+			}
+			fmt.Printf("  %s%-*s%s  %s%s%s\n",
+				cAccent, width, usage, cReset, cDim, info.Desc, cReset)
 		}
 		fmt.Println()
 	}
@@ -312,11 +289,3 @@ func repoNames() []string {
 	return out
 }
 
-func shellCommands() []string {
-	return []string{
-		"pull", "push", "sync", "status", "diff", "ls", "list", "init", "repo",
-		"enable", "disable", "remove", "set", "files", "hook", "resolve",
-		"backups", "restore", "prune", "log", "config", "doctor",
-		"version", "auth", "help", "clear", "exit",
-	}
-}

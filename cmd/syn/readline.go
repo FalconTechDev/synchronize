@@ -218,6 +218,12 @@ func lastWord(s string) (string, int) {
 // belongs there: a command, a subcommand, a repository or a hook event, plus
 // a reminder of what the command still expects.
 func completeLine(line string, commands, repos []string) ([]string, string) {
+	// Typing the program name is a habit; ignore it here the same way the
+	// shell does when the line is run.
+	if strings.HasPrefix(line, "syn ") {
+		line = line[4:]
+	}
+
 	word, _ := lastWord(line)
 	fields := strings.Fields(line)
 
@@ -303,44 +309,6 @@ var subcommands = map[string][]string{
 	"hook":   {"ls", "add", "run", "clear", "timeout"},
 	"files":  {"include", "exclude", "clear"},
 	"config": {"set"},
-}
-
-// hintFor explains what a command still needs, so the prompt is never silent
-// about what comes next.
-func hintFor(key string) string {
-	if h, ok := argHints[key]; ok {
-		return fit(h)
-	}
-	return ""
-}
-
-var argHints = map[string]string{
-	"hook add":     "<repo> <after-pull|after-push|on-conflict> <command>",
-	"hook run":     "<repo> <after-pull|after-push|on-conflict>",
-	"hook clear":   "<repo> [event]",
-	"hook timeout": "<repo> <seconds>",
-	"repo add":     "<owner/name>   [--path ./dir] [--branch main] [--interval 10]",
-	"auth login":   "[--pat <token>]",
-	"auth setup":   "<github oauth client id>",
-	"config set":   "<key> <value>   keys: strategy, interval_minutes, backup, notify, …",
-	"set":          "<repo> <name|remote|branch|interval> <value>",
-	"restore":      "<repo> <backup-branch>",
-	"resolve":      "<repo> [--ours | --theirs | --abort]",
-	"prune":        "<repo|all> [--days N]",
-	"pull":         "<repo|all> [--force]",
-	"push":         "<repo|all> [--force]",
-	"sync":         "<repo|all>",
-	"status":       "<repo|all> [--fetch]",
-	"diff":         "<repo|all>",
-	"watch":        "<repo|all>",
-	"backups":      "<repo>",
-	"remove":       "<repo>   stops tracking; the files stay",
-	"enable":       "<repo>",
-	"disable":      "<repo>",
-	"files":        "<include|exclude|clear> <repo> <glob>",
-	"log":          "[n] [--live]",
-	"init":         "[path]   defaults to the current directory",
-	"serve":        "[--addr :7391]",
 }
 
 func matching(pool []string, prefix string) []string {
