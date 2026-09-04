@@ -51,12 +51,26 @@ FILE RULES  (which files to sync; default: everything)
   files exclude <repo> <glob>   never sync matching paths (e.g. "*.log")
   files clear <repo>     remove all patterns (back to syncing everything)
 
+INTERACTIVE
+  shell                  open a session that stays until you type exit
+
 SYNCING
   pull  [repo] [--force]    bring remote changes in    (--force: reset to remote)
   push  [repo] [--force]    commit + publish local work (--force: force-with-lease)
   sync  [repo]              pull, then push
   status [repo] [--fetch]   show what would happen
   watch [repo]              run the loop: sync at per-repo interval, push on exit
+
+HOOKS  (run a command on THIS machine after a sync changed something)
+  hook ls                          show configured hooks
+  hook add <repo> <event> <cmd>    event: after-pull, after-push, on-conflict
+  hook run <repo> <event>          try it now without syncing
+  hook clear <repo> [event]        remove hooks
+  hook timeout <repo> <seconds>    how long a hook may run (default 300)
+
+  Hooks live in ~/.synchronize/config.json and never travel through git,
+  so a command can only come from this machine.
+  Example:  syn hook add my-bot after-pull "systemctl restart my-bot"
 
 CONFLICTS
   resolve <repo>           replay the conflict into your working tree
@@ -105,9 +119,17 @@ func main() {
 		fmt.Print(usage)
 		return
 	}
+	if err := run(args); err != nil {
+		syn.Errorf("%v", err)
+		os.Exit(1)
+	}
+}
 
-	
-	
+func run(args []string) error {
+	if len(args) == 0 {
+		return nil
+	}
+
 	valueFlags := map[string]bool{
 		"--days":     true,
 		"--pat":      true,
@@ -165,15 +187,11 @@ func main() {
 
 	if needsGit(cmd) {
 		if err := requireGit(); err != nil {
-			syn.Errorf("%v", err)
-			os.Exit(1)
+			return err
 		}
 	}
 
-	if err := dispatch(cmd, rest, arg, selector, has, values); err != nil {
-		syn.Errorf("%v", err)
-		os.Exit(1)
-	}
+	return dispatch(cmd, rest, arg, selector, has, values)
 }
 
 func needsGit(cmd string) bool {
@@ -270,6 +288,12 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 	case "send", "receive", "encrypt", "notify", "tmp":
 		fmt.Printf("syn %s is coming soon — not available yet\n", cmd)
 		return nil
+
+	case "shell", "sh", "i":
+		return cmdShell()
+
+	case "hook", "hooks":
+		return cmdHook(cfg, engine, rest)
 
 	case "serve":
 		addr := values["--addr"]
@@ -764,6 +788,131 @@ func cmdRepoList(creds *syn.Credentials) error {
 		fmt.Printf("%-40s %-8s %-14s %s\n", r.FullName, priv, r.DefaultBranch, desc)
 	}
 	fmt.Printf("\n%d repositories\n", len(repos))
+	return nil
+}
+
+func cmdHook(cfg *syn.Config, e *syn.Engine, rest []string) error {
+	if len(rest) == 0 || rest[0] == "ls" || rest[0] == "list" {
+		return listHooks(cfg)
+	}
+
+	switch rest[0] {
+	case "add":
+		if len(rest) < 4 {
+			return fmt.Errorf("usage: syn hook add <repo> <after-pull|after-push|on-conflict> <command...>")
+		}
+		r := cfg.Find(rest[1])
+		if r == nil {
+			return fmt.Errorf("unknown repository %q", rest[1])
+		}
+		command := strings.Join(rest[3:], " ")
+		switch rest[2] {
+		case "after-pull":
+			r.Hooks.AfterPull = append(r.Hooks.AfterPull, command)
+		case "after-push":
+			r.Hooks.AfterPush = append(r.Hooks.AfterPush, command)
+		case "on-conflict":
+			r.Hooks.OnConflict = append(r.Hooks.OnConflict, command)
+		default:
+			return fmt.Errorf("event must be after-pull, after-push or on-conflict")
+		}
+		if err := cfg.Save(); err != nil {
+			return err
+		}
+		syn.Info("%s: %s hook added", r.Name, rest[2])
+		return nil
+
+	case "clear":
+		if len(rest) < 2 {
+			return fmt.Errorf("usage: syn hook clear <repo> [after-pull|after-push|on-conflict]")
+		}
+		r := cfg.Find(rest[1])
+		if r == nil {
+			return fmt.Errorf("unknown repository %q", rest[1])
+		}
+		which := ""
+		if len(rest) > 2 {
+			which = rest[2]
+		}
+		switch which {
+		case "after-pull":
+			r.Hooks.AfterPull = nil
+		case "after-push":
+			r.Hooks.AfterPush = nil
+		case "on-conflict":
+			r.Hooks.OnConflict = nil
+		case "":
+			r.Hooks = syn.Hooks{}
+		default:
+			return fmt.Errorf("event must be after-pull, after-push or on-conflict")
+		}
+		if err := cfg.Save(); err != nil {
+			return err
+		}
+		syn.Info("%s: hooks cleared", r.Name)
+		return nil
+
+	case "timeout":
+		if len(rest) < 3 {
+			return fmt.Errorf("usage: syn hook timeout <repo> <seconds>")
+		}
+		r := cfg.Find(rest[1])
+		if r == nil {
+			return fmt.Errorf("unknown repository %q", rest[1])
+		}
+		n, err := strconv.Atoi(rest[2])
+		if err != nil || n <= 0 {
+			return fmt.Errorf("timeout must be a positive number of seconds")
+		}
+		r.Hooks.TimeoutSeconds = n
+		if err := cfg.Save(); err != nil {
+			return err
+		}
+		syn.Info("%s: hook timeout set to %ds", r.Name, n)
+		return nil
+
+	case "run":
+		if len(rest) < 3 {
+			return fmt.Errorf("usage: syn hook run <repo> <after-pull|after-push|on-conflict>")
+		}
+		r := cfg.Find(rest[1])
+		if r == nil {
+			return fmt.Errorf("unknown repository %q", rest[1])
+		}
+		return e.RunHooksNow(r, rest[2])
+	}
+	return fmt.Errorf("unknown hook subcommand %q (try: add, ls, clear, timeout, run)", rest[0])
+}
+
+func listHooks(cfg *syn.Config) error {
+	any := false
+	for i := range cfg.Repos {
+		r := &cfg.Repos[i]
+		if r.Hooks.IsEmpty() {
+			continue
+		}
+		any = true
+		fmt.Printf("%s  (timeout %ds)\n", r.Name, r.Hooks.Timeout())
+		show := func(label string, cmds []string) {
+			for _, c := range cmds {
+				fmt.Printf("  %-12s %s\n", label, c)
+			}
+		}
+		show("after-pull", r.Hooks.AfterPull)
+		show("after-push", r.Hooks.AfterPush)
+		show("on-conflict", r.Hooks.OnConflict)
+		fmt.Println()
+	}
+	if !any {
+		fmt.Println("No hooks configured.")
+		fmt.Println()
+		fmt.Println("A hook runs a command on this machine after a sync actually changed something.")
+		fmt.Println("Example - restart a bot whenever new code arrives:")
+		fmt.Println()
+		fmt.Println(`  syn hook add my-bot after-pull "systemctl restart my-bot"`)
+		fmt.Println()
+		fmt.Println("Hooks are stored in ~/.synchronize/config.json and never travel through git.")
+	}
 	return nil
 }
 

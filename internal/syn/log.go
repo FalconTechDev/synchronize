@@ -2,6 +2,7 @@ package syn
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -97,6 +98,43 @@ func LiveTail(w io.Writer, stop <-chan struct{}) error {
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
 			fmt.Fprintln(w, colorLine(scanner.Text()))
+		}
+	}
+}
+
+func TailLines(out chan<- string, stop <-chan struct{}) {
+	defer close(out)
+	pr, pw := io.Pipe()
+	go func() {
+		<-stop
+		pw.Close()
+	}()
+	go LiveTail(pw, stop)
+
+	buf := make([]byte, 0, 4096)
+	tmp := make([]byte, 1024)
+	for {
+		n, err := pr.Read(tmp)
+		if n > 0 {
+			buf = append(buf, tmp[:n]...)
+			for {
+				i := bytes.IndexByte(buf, '\n')
+				if i < 0 {
+					break
+				}
+				line := strings.TrimRight(string(buf[:i]), "\r")
+				buf = buf[i+1:]
+				if line != "" {
+					select {
+					case out <- line:
+					case <-stop:
+						return
+					}
+				}
+			}
+		}
+		if err != nil {
+			return
 		}
 	}
 }

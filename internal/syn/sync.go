@@ -20,6 +20,8 @@ type Result struct {
 	Backup    string
 	Conflict  *Conflict
 	Err       error
+
+	summaryLogged bool
 }
 
 func (r Result) OK() bool { return r.Err == nil && r.Conflict == nil }
@@ -230,7 +232,45 @@ func (e *Engine) integrate(r *Repo, branch string) (conflicted bool, files []str
 	return true, files, nil
 }
 
+// withHooks runs the user's hooks around one sync operation. Hooks live in
+// ~/.synchronize/config.json - never inside the repository - so a command can
+// only ever come from this machine, not from whoever pushed last.
+func (e *Engine) withHooks(r *Repo, op string, run func(*Repo) Result) Result {
+	res := run(r)
+
+	if res.Conflict != nil {
+		e.runHooks(r, "on-conflict", r.Hooks.OnConflict)
+		return res
+	}
+	if res.Err != nil {
+		return res
+	}
+
+	firePull := res.Pulled > 0 && len(r.Hooks.AfterPull) > 0
+	firePush := op == "push" && res.Pushed > 0 && len(r.Hooks.AfterPush) > 0
+	if !firePull && !firePush {
+		return res
+	}
+
+	// The caller logs the summary only after we return, so say what happened
+	// first - otherwise the hook output reads as if it ran before the sync.
+	Info("%s", res.Detail())
+	res.summaryLogged = true
+
+	if firePull {
+		e.runHooks(r, "after-pull", r.Hooks.AfterPull)
+	}
+	if firePush {
+		e.runHooks(r, "after-push", r.Hooks.AfterPush)
+	}
+	return res
+}
+
 func (e *Engine) Pull(r *Repo) Result {
+	return e.withHooks(r, "pull", e.pull)
+}
+
+func (e *Engine) pull(r *Repo) Result {
 	res := Result{Repo: r.Name, Remote: r.Remote, Path: r.Path}
 	branch, err := e.prepare(r)
 	if err != nil {
@@ -311,6 +351,10 @@ func (e *Engine) Pull(r *Repo) Result {
 }
 
 func (e *Engine) Push(r *Repo) Result {
+	return e.withHooks(r, "push", e.push)
+}
+
+func (e *Engine) push(r *Repo) Result {
 	res := Result{Repo: r.Name, Remote: r.Remote, Path: r.Path}
 	branch, err := e.prepare(r)
 	if err != nil {
@@ -404,7 +448,9 @@ func (e *Engine) RunAll(repos []*Repo, op func(*Repo) Result) []Result {
 		case res.Conflict != nil:
 			
 		default:
-			Info("%s", res.Detail())
+			if !res.summaryLogged {
+				Info("%s", res.Detail())
+			}
 		}
 		out = append(out, res)
 	}

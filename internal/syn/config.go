@@ -29,6 +29,26 @@ type Repo struct {
 	
 	Include []string `json:"include,omitempty"` 
 	Exclude []string `json:"exclude,omitempty"` 
+
+	Hooks Hooks `json:"hooks,omitempty"`
+}
+
+type Hooks struct {
+	AfterPull []string `json:"after_pull,omitempty"`
+	AfterPush []string `json:"after_push,omitempty"`
+	OnConflict []string `json:"on_conflict,omitempty"`
+	TimeoutSeconds int `json:"timeout_seconds,omitempty"`
+}
+
+func (h Hooks) Timeout() int {
+	if h.TimeoutSeconds > 0 {
+		return h.TimeoutSeconds
+	}
+	return 300
+}
+
+func (h Hooks) IsEmpty() bool {
+	return len(h.AfterPull) == 0 && len(h.AfterPush) == 0 && len(h.OnConflict) == 0
 }
 
 type Telegram struct {

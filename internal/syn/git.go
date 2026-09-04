@@ -91,6 +91,7 @@ func gitEnvRun(dir string, extraEnv []string, args ...string) (string, error) {
 	env := append(os.Environ(), gitBaseEnv...)
 	env = append(env, extraEnv...)
 	cmd.Env = env
+	hideConsole(cmd)
 	var out, errb bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &errb
@@ -213,6 +214,63 @@ func ConflictedFiles(dir string) []string {
 
 func GitVersion() (string, error) {
 	return git(".", "--version")
+}
+
+type Commit struct {
+	Hash    string `json:"hash"`
+	Subject string `json:"subject"`
+	Author  string `json:"author"`
+	When    string `json:"when"`
+}
+
+func RecentCommits(dir string, limit int) []Commit {
+	out, err := git(dir, "log", fmt.Sprintf("--max-count=%d", limit),
+		"--pretty=format:%h\x1f%s\x1f%an\x1f%cr")
+	if err != nil {
+		return nil
+	}
+	var cs []Commit
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		f := strings.Split(line, "\x1f")
+		if len(f) != 4 {
+			continue
+		}
+		cs = append(cs, Commit{f[0], f[1], f[2], f[3]})
+	}
+	return cs
+}
+
+type FileChange struct {
+	Status string `json:"status"`
+	Path   string `json:"path"`
+}
+
+func ChangedFilesDetailed(dir string) []FileChange {
+	out, err := git(dir, "status", "--porcelain=v1")
+	if err != nil {
+		return nil
+	}
+	var fs []FileChange
+	for _, line := range strings.Split(strings.TrimRight(out, "\n"), "\n") {
+		if len(line) < 4 {
+			continue
+		}
+		code := strings.TrimSpace(line[:2])
+		path := strings.TrimSpace(line[3:])
+		label := "modified"
+		switch {
+		case strings.HasPrefix(code, "??"):
+			label = "new"
+		case strings.HasPrefix(code, "A"):
+			label = "added"
+		case strings.HasPrefix(code, "D"):
+			label = "deleted"
+		case strings.HasPrefix(code, "R"):
+			label = "renamed"
+		}
+		fs = append(fs, FileChange{label, path})
+	}
+	return fs
 }
 
 func CommitLog(dir, from, to string, limit int) []string {

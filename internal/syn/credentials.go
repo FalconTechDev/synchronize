@@ -48,6 +48,10 @@ func (c *Credentials) Token(host string) string {
 	return c.Tokens[host]
 }
 
+func (c *Credentials) Delete(host string) {
+	delete(c.Tokens, host)
+}
+
 func (c *Credentials) Set(host, token string) {
 	if token == "" {
 		delete(c.Tokens, host)
