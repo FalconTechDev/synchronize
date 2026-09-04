@@ -222,7 +222,17 @@ func completeLine(line string, commands, repos []string) ([]string, string) {
 	first := len(fields) == 0 || (len(fields) == 1 && !strings.HasSuffix(line, " "))
 
 	if first {
-		return matching(commands, word), ""
+		options := matching(commands, word)
+		switch {
+		case word == "":
+			return options, "commands: " + strings.Join(commonCommands(), "   ") + "   …  (Tab to complete, help for all)"
+		case len(options) == 0:
+			return nil, "no command starts with " + word
+		case len(options) == 1 && options[0] == word:
+			return options, ""
+		default:
+			return options, "commands: " + strings.Join(options, "   ")
+		}
 	}
 
 	cmd := fields[0]
@@ -266,4 +276,8 @@ func matching(pool []string, prefix string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func commonCommands() []string {
+	return []string{"pull", "push", "sync", "status", "ls", "hook", "log", "help", "exit"}
 }

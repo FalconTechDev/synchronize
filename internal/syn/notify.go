@@ -13,16 +13,17 @@ type Notifier struct {
 
 func NewNotifier(cfg *Config) *Notifier { return &Notifier{cfg: cfg} }
 
-func (n *Notifier) Send(level, msg string) {
-	
+// Alert carries the two shapes a notification needs: a toast has room for
+// about two short lines, while the Telegram message can hold everything.
+type Alert struct {
+	Title string
+	Short string
+	Full  string
+}
+
+func (n *Notifier) Send(level string, a Alert) {
 	if level == "conflict" {
-		lines := strings.SplitN(msg, "\n", 3)
-		title := "synchronize: конфликт"
-		body := lines[0]
-		if len(lines) > 1 {
-			body = strings.Join(lines[1:], " ")
-		}
-		ToastNotify(title, body)
+		ToastNotify(a.Title, a.Short)
 	}
 	if n == nil || n.cfg == nil {
 		return
@@ -45,7 +46,7 @@ func (n *Notifier) Send(level, msg string) {
 	endpoint := "https://api.telegram.org/bot" + tg.Token + "/sendMessage"
 	form := url.Values{
 		"chat_id":                  {tg.ChatID},
-		"text":                     {msg},
+		"text":                     {a.Full},
 		"disable_web_page_preview": {"true"},
 	}
 	client := &http.Client{Timeout: 15 * time.Second}

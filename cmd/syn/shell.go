@@ -284,7 +284,7 @@ func shellCommands() []string {
 	return []string{
 		"pull", "push", "sync", "status", "diff", "ls", "list", "init", "repo",
 		"enable", "disable", "remove", "set", "files", "hook", "resolve",
-		"backups", "restore", "prune", "log", "notify", "config", "doctor",
+		"backups", "restore", "prune", "log", "config", "doctor",
 		"version", "auth", "help", "clear", "exit",
 	}
 }

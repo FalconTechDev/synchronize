@@ -195,9 +195,12 @@ func (e *Engine) recordConflict(r *Repo, branch, backupBranch, reason string, fi
 		Warn("could not persist conflict state: %v", err)
 	}
 	Errorf("%s: conflict on %s (%s)", r.Name, branch, reason)
-	body := fmt.Sprintf("synchronize: конфликт\n\nРепо: %s\nВетка: %s\nМашина: %s\nПричина: %s\nФайлы: %s\nБэкап-ветка: %s\n\nПочини вручную и запусти: syn resolve %s",
-		r.Name, branch, hostname(), reason, strings.Join(files, ", "), backupBranch, r.Name)
-	e.Notifier.Send("conflict", body)
+	e.Notifier.Send("conflict", Alert{
+		Title: "synchronize: конфликт",
+		Short: fmt.Sprintf("%s (%s) — запусти: syn resolve %s", r.Name, branch, r.Name),
+		Full: fmt.Sprintf("synchronize: конфликт\n\nРепо: %s\nВетка: %s\nМашина: %s\nПричина: %s\nФайлы: %s\nБэкап-ветка: %s\n\nПочини вручную и запусти: syn resolve %s",
+			r.Name, branch, hostname(), reason, strings.Join(files, ", "), backupBranch, r.Name),
+	})
 	return c
 }
 

@@ -33,6 +33,8 @@ func toastWindows(title, body string) {
 $t = $env:SYN_TOAST_TITLE
 $b = $env:SYN_TOAST_BODY
 $img = $env:SYN_TOAST_IMAGE
+$appId = $env:SYN_TOAST_APPID
+if (-not $appId) { $appId = "synchronize" }
 $null = [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType=WindowsRuntime]
 $null = [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom, ContentType=WindowsRuntime]
 if ($img) {
@@ -50,7 +52,7 @@ if ($img) {
     $imgNode.SetAttribute("alt", "synchronize")
 }
 $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
-[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("synchronize").Show($toast)
+[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($appId).Show($toast)
 `
 
 	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script)
@@ -58,6 +60,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 		"SYN_TOAST_TITLE="+title,
 		"SYN_TOAST_BODY="+body,
 		"SYN_TOAST_IMAGE="+imgURI,
+		"SYN_TOAST_APPID="+ensureToastAppID(),
 	)
 	hideConsole(cmd)
 	cmd.Start()
