@@ -113,7 +113,7 @@ func hostname() string {
 
 func (e *Engine) prepare(r *Repo) (string, error) {
 	if !IsRepo(r.Path) {
-		return "", fmt.Errorf("%s is not a git working tree", r.Path)
+		return "", notAWorkingTree(r)
 	}
 	if op := InProgress(r.Path); op != "" {
 		return "", fmt.Errorf("a %s is already in progress - finish it or run `syn resolve %s --abort`", op, r.Name)

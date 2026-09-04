@@ -108,6 +108,10 @@ func cmdShell() error {
 		}
 
 		args, err := splitArgs(line)
+		if err == nil && len(args) > 1 && args[0] == "syn" {
+			// Typing the program name here is a habit worth forgiving.
+			args = args[1:]
+		}
 		if err != nil {
 			fmt.Printf("%s%v%s\n\n", cErr, err, cReset)
 			continue

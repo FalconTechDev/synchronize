@@ -2,6 +2,7 @@ package syn
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 )
@@ -26,7 +27,7 @@ func (e *Engine) Status(r *Repo, fetch bool) RepoStatus {
 	}
 	st.LastSync = e.State.LastSync[r.Name]
 	if !IsRepo(r.Path) {
-		st.Err = fmt.Errorf("%s is not a git working tree", r.Path)
+		st.Err = notAWorkingTree(r)
 		return st
 	}
 	st.InProgres = InProgress(r.Path)
@@ -105,4 +106,21 @@ func timeAgo(t time.Time) string {
 	default:
 		return fmt.Sprintf("%d days ago", int(d.Hours()/24))
 	}
+}
+
+// notAWorkingTree explains the two ways this normally happens - the folder
+// moved or its .git was deleted - and what to do about each.
+func notAWorkingTree(r *Repo) error {
+	if _, err := os.Stat(r.Path); os.IsNotExist(err) {
+		return fmt.Errorf("%s no longer exists\n"+
+			"        it may be on a drive that is not plugged in.\n"+
+			"        if it is gone for good:  syn remove %s", r.Path, r.Name)
+	}
+	slug := r.GithubSlug
+	if slug == "" {
+		slug = "<owner>/<name>"
+	}
+	return fmt.Errorf("%s is no longer a git repository (its .git is missing)\n"+
+		"        clone it again:  syn repo add %s --path %s\n"+
+		"        or stop tracking it:  syn remove %s", r.Path, slug, r.Path, r.Name)
 }

@@ -21,13 +21,11 @@ var Version = "dev"
 
 const usage = `synchronize (syn) — automatic git sync across your machines
 
- - automatic git sync across your machines
-
 USAGE
   syn <command> [repo] [flags]
 
-  Most commands take a repository name (as shown by ` + "`syn list`" + `) or a path.
-  Pass --all, or nothing at all, to act on every enabled repository.
+  Commands that touch a repository need it named - see ` + "`syn list`" + `.
+  Pass "all" to act on every enabled repository at once.
 
 GITHUB AUTH
   auth login             authenticate with GitHub (PAT or Device Flow)
@@ -63,9 +61,8 @@ SYNCING
   sync  <repo|all>            pull, then push
   status <repo|all> [--fetch] show what would happen
 
-  A repository has to be named. Pass "all" to act on every enabled one.
-  watch <repo|all>          sync at the repo interval; publishes before the
-                            machine shuts down and holds shutdown until it has
+  watch <repo|all>            sync on a timer; publishes before the machine
+                              shuts down and holds shutdown until it has
 
 HOOKS  (run a command on THIS machine after a sync changed something)
   hook ls                          show configured hooks
@@ -85,7 +82,7 @@ CONFLICTS
   resolve <repo> --abort   give up on the in-progress rebase/merge
   backups <repo>           list safety branches taken before rewrites
   restore <repo> <ref>     move the branch back onto a safety branch
-  prune [repo] [--days N]  delete safety branches older than N days
+  prune <repo|all> [--days N]  delete safety branches older than N days
                            (default: keep_backup_days; --days 0 deletes all)
 
 AUTOSTART
@@ -100,13 +97,13 @@ OTHER
                          notify, commit_template, keep_backup_days
   log [n]                last n log lines (default 40)
   log --live             stream the log in real time
-  diff [repo]            show uncommitted diff
+  diff <repo|all>         show uncommitted diff
   serve [--addr :7391]   web dashboard with live log and pull/push buttons
   doctor                 check that everything is wired up
   version                print the version
 
 GLOBAL FLAGS
-  --all       act on every enabled repository
+  --all       same as naming "all"
   --quiet     no stdout (the log file is still written)
   -v          verbose
 
