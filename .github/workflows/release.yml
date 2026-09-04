@@ -40,7 +40,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.25'
 
       - name: Install Linux deps
         if: matrix.os == 'ubuntu-latest'
@@ -51,6 +51,18 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 1
         run: go build -ldflags="-s -w -X main.Version=${{ github.ref_name }}" -o ${{ matrix.binary }} ./cmd/syn/
+
+      - name: Build installer (Windows)
+        if: matrix.goos == 'windows'
+        shell: pwsh
+        run: |
+          go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest
+          Copy-Item syn.exe cmd\syn-setup\syn.exe
+          Copy-Item internal\syn\assets\tray.png cmd\syn-setup\logo.png
+          Push-Location cmd\syn-setup
+          & "$(go env GOPATH)\bin\goversioninfo.exe" -o resource_windows_amd64.syso versioninfo.json
+          Pop-Location
+          go build -ldflags="-s -w -X main.Version=${{ github.ref_name }}" -o syn-setup.exe ./cmd/syn-setup/
 
       - name: Package (Windows)
         if: matrix.goos == 'windows'
@@ -64,5 +76,7 @@ jobs:
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.asset_name }}
+          files: |
+            ${{ matrix.asset_name }}
+            ${{ matrix.goos == 'windows' && 'syn-setup.exe' || '' }}
           generate_release_notes: true

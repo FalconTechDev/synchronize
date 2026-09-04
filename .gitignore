@@ -1,9 +1,15 @@
 # Build output
 bin/
+dist/
 *.exe
 *.dll
 *.so
 *.dylib
+
+# Installer build artifacts (staged at build time by build-installer.ps1)
+cmd/syn-setup/syn.exe
+cmd/syn-setup/logo.png
+*.syso
 
 # Credentials and keys — NEVER commit these
 credentials.json
