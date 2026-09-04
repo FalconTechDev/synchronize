@@ -34,6 +34,39 @@ func git(dir string, args ...string) (string, error) {
 	return gitEnvRun(dir, nil, args...)
 }
 
+var FallbackIdentity Identity
+
+func gitCommit(dir, msg string) (string, error) {
+	return gitEnvRun(dir, identityEnv(dir), "commit", "--quiet", "-m", msg)
+}
+
+func identityEnv(dir string) []string {
+	if FallbackIdentity.IsZero() {
+		return nil
+	}
+	if hasGitIdentity(dir) {
+		return nil
+	}
+	Debug("git identity not configured - using your GitHub identity (%s <%s>)",
+		FallbackIdentity.Name, FallbackIdentity.Email)
+	return []string{
+		"GIT_CONFIG_COUNT=2",
+		"GIT_CONFIG_KEY_0=user.name",
+		"GIT_CONFIG_VALUE_0=" + FallbackIdentity.Name,
+		"GIT_CONFIG_KEY_1=user.email",
+		"GIT_CONFIG_VALUE_1=" + FallbackIdentity.Email,
+	}
+}
+
+func hasGitIdentity(dir string) bool {
+	name, err := git(dir, "config", "--get", "user.name")
+	if err != nil || strings.TrimSpace(name) == "" {
+		return false
+	}
+	email, err := git(dir, "config", "--get", "user.email")
+	return err == nil && strings.TrimSpace(email) != ""
+}
+
 func gitWithToken(dir, token string, args ...string) (string, error) {
 	if token == "" {
 		return git(dir, args...)
@@ -180,6 +213,21 @@ func ConflictedFiles(dir string) []string {
 
 func GitVersion() (string, error) {
 	return git(".", "--version")
+}
+
+func CommitLog(dir, from, to string, limit int) []string {
+	out, err := git(dir, "log", "--no-merges", fmt.Sprintf("--max-count=%d", limit),
+		"--pretty=format:%h  %s", from+".."+to)
+	if err != nil {
+		return nil
+	}
+	var lines []string
+	for _, l := range strings.Split(strings.TrimSpace(out), "\n") {
+		if l = strings.TrimSpace(l); l != "" {
+			lines = append(lines, l)
+		}
+	}
+	return lines
 }
 
 func Diff(dir, remote, branch string) (string, error) {

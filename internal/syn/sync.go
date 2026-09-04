@@ -10,15 +10,26 @@ import (
 type Result struct {
 	Repo      string
 	Branch    string
+	Remote    string
+	Path      string
 	Committed bool
 	Pulled    int
 	Pushed    int
+	PulledLog []string
+	PushedLog []string
 	Backup    string
 	Conflict  *Conflict
 	Err       error
 }
 
 func (r Result) OK() bool { return r.Err == nil && r.Conflict == nil }
+
+func (r Result) tracking() string {
+	if r.Remote == "" || r.Branch == "" {
+		return r.Branch
+	}
+	return fmt.Sprintf("%s/%s", r.Remote, r.Branch)
+}
 
 func (r Result) Summary() string {
 	switch {
@@ -33,15 +44,34 @@ func (r Result) Summary() string {
 		parts = append(parts, "committed local changes")
 	}
 	if r.Pulled > 0 {
-		parts = append(parts, fmt.Sprintf("pulled %d", r.Pulled))
+		parts = append(parts, fmt.Sprintf("pulled %s from %s", plural(r.Pulled, "commit"), r.tracking()))
 	}
 	if r.Pushed > 0 {
-		parts = append(parts, fmt.Sprintf("pushed %d", r.Pushed))
+		parts = append(parts, fmt.Sprintf("pushed %s to %s", plural(r.Pushed, "commit"), r.tracking()))
 	}
 	if len(parts) == 0 {
-		parts = append(parts, "already up to date")
+		parts = append(parts, "already up to date with "+r.tracking())
 	}
 	return fmt.Sprintf("%s: %s", r.Repo, strings.Join(parts, ", "))
+}
+
+func (r Result) Detail() string {
+	var b strings.Builder
+	b.WriteString(r.Summary())
+	for _, line := range r.PulledLog {
+		fmt.Fprintf(&b, "\n           down  %s", line)
+	}
+	for _, line := range r.PushedLog {
+		fmt.Fprintf(&b, "\n           up    %s", line)
+	}
+	return b.String()
+}
+
+func plural(n int, word string) string {
+	if n == 1 {
+		return fmt.Sprintf("%d %s", n, word)
+	}
+	return fmt.Sprintf("%d %ss", n, word)
 }
 
 type Engine struct {
@@ -143,7 +173,7 @@ func (e *Engine) autoCommit(r *Repo) (bool, error) {
 		"{host}", hostname(),
 		"{time}", time.Now().Format("2006-01-02 15:04"),
 	).Replace(e.Cfg.CommitTemplate)
-	if _, err := git(r.Path, "commit", "--quiet", "-m", msg); err != nil {
+	if _, err := gitCommit(r.Path, msg); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -201,7 +231,7 @@ func (e *Engine) integrate(r *Repo, branch string) (conflicted bool, files []str
 }
 
 func (e *Engine) Pull(r *Repo) Result {
-	res := Result{Repo: r.Name}
+	res := Result{Repo: r.Name, Remote: r.Remote, Path: r.Path}
 	branch, err := e.prepare(r)
 	if err != nil {
 		res.Err = err
@@ -231,6 +261,8 @@ func (e *Engine) Pull(r *Repo) Result {
 		e.markSynced(r)
 		return res
 	}
+
+	res.PulledLog = CommitLog(r.Path, "HEAD", r.Remote+"/"+branch, 5)
 
 	if ahead > 0 || dirty {
 		res.Backup = e.backup(r, branch)
@@ -279,7 +311,7 @@ func (e *Engine) Pull(r *Repo) Result {
 }
 
 func (e *Engine) Push(r *Repo) Result {
-	res := Result{Repo: r.Name}
+	res := Result{Repo: r.Name, Remote: r.Remote, Path: r.Path}
 	branch, err := e.prepare(r)
 	if err != nil {
 		res.Err = err
@@ -311,6 +343,7 @@ func (e *Engine) Push(r *Repo) Result {
 		res.Backup = e.backup(r, branch)
 	}
 	if behind > 0 {
+		res.PulledLog = CommitLog(r.Path, "HEAD", r.Remote+"/"+branch, 5)
 		conflicted, files, err := e.integrate(r, branch)
 		if err != nil {
 			res.Err = err
@@ -332,6 +365,7 @@ func (e *Engine) Push(r *Repo) Result {
 		e.markSynced(r)
 		return res
 	}
+	res.PushedLog = CommitLog(r.Path, r.Remote+"/"+branch, "HEAD", 5)
 	if _, err := e.gitR(r, "push", r.Remote, branch); err != nil {
 		res.Err = err
 		return res
@@ -370,7 +404,7 @@ func (e *Engine) RunAll(repos []*Repo, op func(*Repo) Result) []Result {
 		case res.Conflict != nil:
 			
 		default:
-			Info("%s", res.Summary())
+			Info("%s", res.Detail())
 		}
 		out = append(out, res)
 	}

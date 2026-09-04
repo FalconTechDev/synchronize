@@ -204,6 +204,7 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		return err
 	}
 	engine := syn.NewEngine(cfg)
+	syn.FallbackIdentity = cfg.Identity
 
 	creds := syn.LoadCredentials()
 
@@ -328,7 +329,7 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		if res.Err != nil {
 			return res.Err
 		}
-		syn.Info("%s", res.Summary())
+		syn.Info("%s", res.Detail())
 		return nil
 
 	case "backups":
@@ -545,7 +546,7 @@ func cmdAuth(cfg *syn.Config, creds *syn.Credentials, rest []string, has func(st
 			return fmt.Errorf("--pat requires a token value")
 		}
 		if pat != "" {
-			display, err := syn.LoginPAT(creds, pat)
+			display, err := syn.LoginPAT(creds, cfg, pat)
 			if err != nil {
 				return err
 			}
@@ -565,7 +566,7 @@ func cmdAuth(cfg *syn.Config, creds *syn.Credentials, rest []string, has func(st
 			if token == "" {
 				return fmt.Errorf("no token entered")
 			}
-			display, err := syn.LoginPAT(creds, token)
+			display, err := syn.LoginPAT(creds, cfg, token)
 			if err != nil {
 				return err
 			}

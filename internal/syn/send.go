@@ -28,7 +28,7 @@ func (e *Engine) SendFiles(destRepo *Repo, srcPaths []string) error {
 	}
 	msg := fmt.Sprintf("syn: send %d file(s) from %s at %s",
 		len(srcPaths), hostname(), time.Now().Format("2006-01-02 15:04"))
-	if _, err := git(destRepo.Path, "commit", "--quiet", "-m", msg); err != nil {
+	if _, err := gitCommit(destRepo.Path, msg); err != nil {
 		return err
 	}
 	token := e.tokenFor(destRepo)

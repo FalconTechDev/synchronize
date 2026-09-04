@@ -54,9 +54,19 @@ type Config struct {
 	
 	NotifySync bool `json:"notify_sync,omitempty"`
 
-	
+
 	ServeAddr string `json:"serve_addr,omitempty"`
+
+
+	Identity Identity `json:"identity,omitempty"`
 }
+
+type Identity struct {
+	Name  string `json:"name,omitempty"`
+	Email string `json:"email,omitempty"`
+}
+
+func (i Identity) IsZero() bool { return i.Name == "" || i.Email == "" }
 
 func (c *Config) IntervalFor(r *Repo) int {
 	if r.IntervalMinutes > 0 {

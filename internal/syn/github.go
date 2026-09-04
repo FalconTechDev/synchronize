@@ -63,19 +63,33 @@ func (g *GitHub) get(path string, out any) error {
 }
 
 func (g *GitHub) WhoAmI() (string, string, error) {
+	login, display, _, err := g.WhoAmIFull()
+	return login, display, err
+}
+
+func (g *GitHub) WhoAmIFull() (string, string, Identity, error) {
 	var u struct {
+		ID    int64  `json:"id"`
 		Login string `json:"login"`
 		Name  string `json:"name"`
 		Email string `json:"email"`
 	}
 	if err := g.get("/user", &u); err != nil {
-		return "", "", err
+		return "", "", Identity{}, err
 	}
 	display := u.Login
 	if u.Name != "" {
 		display = u.Name + " (" + u.Login + ")"
 	}
-	return u.Login, display, nil
+
+	id := Identity{Name: u.Name, Email: u.Email}
+	if id.Name == "" {
+		id.Name = u.Login
+	}
+	if id.Email == "" {
+		id.Email = fmt.Sprintf("%d+%s@users.noreply.github.com", u.ID, u.Login)
+	}
+	return u.Login, display, id, nil
 }
 
 func (g *GitHub) RepoInfo(owner, repo string) (*GHRepo, error) {
@@ -208,9 +222,9 @@ func DeviceFlowPoll(clientID string, d *DeviceFlowStart) (string, error) {
 	return "", fmt.Errorf("timed out waiting for authorization")
 }
 
-func LoginPAT(creds *Credentials, token string) (string, error) {
+func LoginPAT(creds *Credentials, cfg *Config, token string) (string, error) {
 	gh := NewGitHub(token)
-	login, display, err := gh.WhoAmI()
+	_, display, id, err := gh.WhoAmIFull()
 	if err != nil {
 		return "", fmt.Errorf("token rejected by GitHub: %w", err)
 	}
@@ -218,7 +232,13 @@ func LoginPAT(creds *Credentials, token string) (string, error) {
 	if err := creds.Save(); err != nil {
 		return "", err
 	}
-	_ = login
+	if cfg != nil && cfg.Identity.IsZero() {
+		cfg.Identity = id
+		if err := cfg.Save(); err != nil {
+			return "", err
+		}
+		FallbackIdentity = id
+	}
 	return display, nil
 }
 
