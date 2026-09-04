@@ -180,24 +180,40 @@ func (c *Config) Find(key string) *Repo {
 	return nil
 }
 
+// Selected turns a command-line selector into repositories. Acting on every
+// repository has to be asked for by name ("all"), so a bare `syn push` can
+// never quietly publish work from a repository you were not thinking about.
 func (c *Config) Selected(key string) ([]*Repo, error) {
-	if key == "" {
-		var out []*Repo
-		for i := range c.Repos {
-			if c.Repos[i].Enabled {
-				out = append(out, &c.Repos[i])
-			}
-		}
+	if len(c.Repos) == 0 {
+		return nil, errors.New("no repositories registered yet - run `syn init` inside a git repo")
+	}
+
+	if key == "all" {
+		out := c.EnabledRepos()
 		if len(out) == 0 {
-			return nil, errors.New("no repositories registered yet - run `syn init` inside a git repo")
+			return nil, errors.New("every repository is paused - enable one with `syn enable <repo>`")
 		}
 		return out, nil
 	}
+
+	if key == "" {
+		return nil, fmt.Errorf("which repository?\n%s", c.pickHint())
+	}
+
 	r := c.Find(key)
 	if r == nil {
-		return nil, fmt.Errorf("unknown repository %q", key)
+		return nil, fmt.Errorf("unknown repository %q\n%s", key, c.pickHint())
 	}
 	return []*Repo{r}, nil
+}
+
+func (c *Config) pickHint() string {
+	names := make([]string, 0, len(c.Repos))
+	for i := range c.Repos {
+		names = append(names, c.Repos[i].Name)
+	}
+	return fmt.Sprintf("        pick one of: %s\n        or act on every enabled one with: all",
+		strings.Join(names, ", "))
 }
 
 func (c *Config) EnabledRepos() []*Repo {

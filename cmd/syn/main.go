@@ -183,7 +183,7 @@ func run(args []string) error {
 	
 	selector := arg(0)
 	if has("--all") {
-		selector = ""
+		selector = "all"
 	}
 
 	if needsGit(cmd) {

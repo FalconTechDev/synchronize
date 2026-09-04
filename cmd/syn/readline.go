@@ -41,6 +41,9 @@ func (e *editor) Read(prompt string, complete func(string) ([]string, string)) (
 	pos := 0
 	e.hpos = len(e.history)
 	hintShown := false
+	// Set by Tab to show the candidates for one keystroke only, so the list
+	// never ends up in the scrollback.
+	pending := ""
 
 	redraw := func() {
 		fmt.Print("\r\033[K" + prompt + string(line))
@@ -58,7 +61,11 @@ func (e *editor) Read(prompt string, complete func(string) ([]string, string)) (
 
 	showHint := func() {
 		clearHint()
-		_, hint := complete(string(line[:pos]))
+		hint := pending
+		pending = ""
+		if hint == "" {
+			_, hint = complete(string(line[:pos]))
+		}
 		if hint == "" {
 			return
 		}
@@ -103,9 +110,7 @@ func (e *editor) Read(prompt string, complete func(string) ([]string, string)) (
 				redraw()
 				showHint()
 			} else if len(options) > 1 {
-				clearHint()
-				fmt.Print("\r\n" + cDim + strings.Join(options, "   ") + cReset + "\r\n")
-				redraw()
+				pending = fit(strings.Join(options, "   "))
 				showHint()
 			}
 
@@ -214,48 +219,130 @@ func lastWord(s string) (string, int) {
 	return s[i+1:], i + 1
 }
 
-// completeLine offers command names for the first word and repository names
-// for anything that takes a repo, plus a one-line hint under the prompt.
+// completeLine works out which word the cursor sits on and offers whatever
+// belongs there: a command, a subcommand, a repository, or nothing but a
+// reminder of what the command still expects.
 func completeLine(line string, commands, repos []string) ([]string, string) {
 	word, _ := lastWord(line)
 	fields := strings.Fields(line)
-	first := len(fields) == 0 || (len(fields) == 1 && !strings.HasSuffix(line, " "))
 
-	if first {
+	idx := len(fields)
+	if !strings.HasSuffix(line, " ") && idx > 0 {
+		idx--
+	}
+
+	if idx == 0 {
 		options := matching(commands, word)
 		switch {
 		case word == "":
-			return options, "commands: " + strings.Join(commonCommands(), "   ") + "   …  (Tab to complete, help for all)"
+			return options, ""
 		case len(options) == 0:
 			return nil, "no command starts with " + word
 		case len(options) == 1 && options[0] == word:
-			return options, ""
+			return options, hintFor(word)
 		default:
-			return options, "commands: " + strings.Join(options, "   ")
+			return options, fit("commands: " + strings.Join(options, "   "))
 		}
 	}
 
 	cmd := fields[0]
-	if !takesRepo(cmd) {
-		return nil, ""
+	subs, hasSubs := subcommands[cmd]
+
+	if hasSubs && idx == 1 {
+		options := matching(subs, word)
+		switch {
+		case len(options) == 0:
+			return nil, fit(cmd + " takes: " + strings.Join(subs, "   "))
+		case len(options) == 1 && options[0] == word:
+			return options, hintFor(cmd + " " + word)
+		default:
+			return options, fit(cmd + ": " + strings.Join(options, "   "))
+		}
 	}
 
-	if len(repos) == 0 {
-		return nil, "no repositories registered yet - try: repo add owner/name"
+	key := cmd
+	if hasSubs && len(fields) > 1 {
+		key = cmd + " " + fields[1]
 	}
 
-	// Once a repository has been typed, stop offering the list again.
-	typedRepo := len(fields) > 1 && strings.HasSuffix(line, " ")
-
-	options := matching(repos, word)
-	switch {
-	case typedRepo:
-		return options, ""
-	case word != "" && len(options) == 0:
-		return nil, "no repository matches " + word
-	default:
-		return options, "repos: " + strings.Join(repos, "   ")
+	if at, ok := repoWord[key]; ok && idx == at {
+		if len(repos) == 0 {
+			return nil, "no repositories registered yet - try: repo add owner/name"
+		}
+		pool := append([]string{"all"}, repos...)
+		options := matching(pool, word)
+		if word != "" && len(options) == 0 {
+			return nil, "no repository matches " + word
+		}
+		return options, fit("repos: " + strings.Join(pool, "   "))
 	}
+
+	if events, ok := eventWord[key]; ok && idx == eventPos[key] {
+		options := matching(events, word)
+		if len(options) == 0 {
+			return nil, fit("event: " + strings.Join(events, "   "))
+		}
+		return options, fit("event: " + strings.Join(events, "   "))
+	}
+
+	return nil, hintFor(key)
+}
+
+// repoWord says which word of a command names a repository, and eventWord
+// which one names a hook event.
+var repoWord = map[string]int{
+	"pull": 1, "push": 1, "sync": 1, "status": 1, "diff": 1, "watch": 1,
+	"remove": 1, "enable": 1, "disable": 1, "set": 1, "resolve": 1,
+	"backups": 1, "restore": 1, "prune": 1,
+	"files include": 2, "files exclude": 2, "files clear": 2,
+	"hook add": 2, "hook run": 2, "hook clear": 2, "hook timeout": 2,
+}
+
+var hookEvents = []string{"after-pull", "after-push", "on-conflict"}
+
+var eventWord = map[string][]string{
+	"hook add": hookEvents, "hook run": hookEvents, "hook clear": hookEvents,
+}
+
+var eventPos = map[string]int{"hook add": 3, "hook run": 3, "hook clear": 3}
+
+// subcommands drive the second word of the commands that have one.
+var subcommands = map[string][]string{
+	"auth":   {"login", "logout", "status", "setup"},
+	"repo":   {"add", "ls"},
+	"hook":   {"ls", "add", "run", "clear", "timeout"},
+	"files":  {"include", "exclude", "clear"},
+	"config": {"set"},
+}
+
+// hintFor explains what a command still needs, so the prompt is never silent
+// about what comes next.
+func hintFor(key string) string {
+	if h, ok := argHints[key]; ok {
+		return fit(h)
+	}
+	return ""
+}
+
+var argHints = map[string]string{
+	"hook add":     "<repo> <after-pull|after-push|on-conflict> <command>",
+	"hook run":     "<repo> <after-pull|after-push|on-conflict>",
+	"hook clear":   "<repo> [event]",
+	"hook timeout": "<repo> <seconds>",
+	"repo add":     "<owner/name>   [--path ./dir] [--branch main] [--interval 10]",
+	"auth login":   "[--pat <token>]",
+	"auth setup":   "<github oauth client id>",
+	"config set":   "<key> <value>   keys: strategy, interval_minutes, backup, notify, …",
+	"files":        "<repo>   then: include | exclude | clear",
+	"set":          "<repo> <name|remote|branch|interval> <value>",
+	"restore":      "<repo> <backup-branch>",
+	"resolve":      "<repo> [--ours | --theirs | --abort]",
+	"prune":        "<repo> [--days N]",
+	"pull":         "[--force]",
+	"push":         "[--force]",
+	"status":       "[--fetch]",
+	"log":          "[n] [--live]",
+	"init":         "[path]   defaults to the current directory",
 }
 
 func takesRepo(cmd string) bool {
@@ -278,6 +365,15 @@ func matching(pool []string, prefix string) []string {
 	return out
 }
 
-func commonCommands() []string {
-	return []string{"pull", "push", "sync", "status", "ls", "hook", "log", "help", "exit"}
+// fit keeps a hint on one line so it never wraps and corrupts the redraw.
+func fit(s string) string {
+	width, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || width < 20 {
+		width = 100
+	}
+	r := []rune(s)
+	if len(r) <= width-1 {
+		return s
+	}
+	return string(r[:width-2]) + "…"
 }
