@@ -13,6 +13,7 @@ Unicode true
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
 !include "FileFunc.nsh"
+!include "Sections.nsh"
 !include "StrFunc.nsh"
 
 ${StrStr}
@@ -75,6 +76,64 @@ VIAddVersionKey "LegalCopyright"  "MIT License"
 
 ; ---------------------------------------------------------------- sections
 Var AddedToPath
+Var GitFound
+Var GitVer
+
+; syn drives the real git, so git must be present.
+Section "Git for Windows (required by syn)" SecGit
+  ${If} $GitFound == "1"
+    DetailPrint "Git already installed ($GitVer) - skipping."
+    Return
+  ${EndIf}
+
+  DetailPrint "Git was not found on this machine."
+
+  ; --- preferred path: winget (handles download, verify and PATH) ---
+  nsExec::ExecToStack 'cmd /c where winget'
+  Pop $0
+  ${If} $0 == 0
+    DetailPrint "Installing Git via winget - this may take a few minutes..."
+    nsExec::ExecToLog 'cmd /c winget install --id Git.Git -e --source winget \
+      --accept-package-agreements --accept-source-agreements --silent'
+    Pop $0
+    ${If} $0 == 0
+      DetailPrint "Git installed."
+      Goto git_done
+    ${EndIf}
+    DetailPrint "winget failed (code $0) - falling back to direct download."
+  ${EndIf}
+
+  ; --- fallback: fetch the latest Git for Windows release from GitHub ---
+  DetailPrint "Downloading the latest Git for Windows..."
+  StrCpy $1 "$TEMP\git-installer.exe"
+
+  nsExec::ExecToLog 'powershell -NoProfile -ExecutionPolicy Bypass -Command \
+    "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; \
+     $$r = Invoke-RestMethod https://api.github.com/repos/git-for-windows/git/releases/latest; \
+     $$a = $$r.assets | Where-Object { $$_.name -like \"*64-bit.exe\" } | Select-Object -First 1; \
+     if (-not $$a) { exit 1 }; \
+     Write-Host $$a.name; \
+     Invoke-WebRequest $$a.browser_download_url -OutFile \"$1\" -UseBasicParsing"'
+  Pop $0
+
+  ${If} $0 != 0
+    MessageBox MB_ICONEXCLAMATION|MB_OK \
+      "Could not download Git automatically.$\r$\n$\r$\nsynchronize will still be installed, but it will not work until you install Git yourself:$\r$\n$\r$\n    https://git-scm.com/download/win"
+    Goto git_done
+  ${EndIf}
+
+  DetailPrint "Running the Git installer..."
+  ExecWait '"$1" /VERYSILENT /NORESTART /NOCANCEL /SP- /COMPONENTS="icons,ext\reg\shellhere,assoc,assoc_sh"' $0
+  Delete "$1"
+  ${If} $0 == 0
+    DetailPrint "Git installed."
+  ${Else}
+    DetailPrint "Git installer returned code $0."
+  ${EndIf}
+
+  git_done:
+SectionEnd
+
 
 Section "!${APPNAME} (required)" SecCore
   SectionIn RO
@@ -148,7 +207,41 @@ Section /o "Run syn at startup (watch mode)" SecAutostart
   DetailPrint "syn will start watching your repos when you log in."
 SectionEnd
 
+; ---------------------------------------------------------------- init
+Function .onInit
+  StrCpy $GitFound "0"
+
+  ; on PATH?
+  nsExec::ExecToStack 'cmd /c git --version'
+  Pop $0
+  Pop $1
+  ${If} $0 == 0
+    StrCpy $GitFound "1"
+    StrCpy $GitVer $1 20
+    Goto checked
+  ${EndIf}
+
+  ; installed but not on PATH? (common after a fresh install without reopening the shell)
+  ${If} ${FileExists} "$PROGRAMFILES64\Git\cmd\git.exe"
+  ${OrIf} ${FileExists} "$PROGRAMFILES32\Git\cmd\git.exe"
+  ${OrIf} ${FileExists} "$LOCALAPPDATA\Programs\Git\cmd\git.exe"
+    StrCpy $GitFound "1"
+    StrCpy $GitVer "already installed"
+  ${EndIf}
+
+  checked:
+  ${If} $GitFound == "1"
+    ; nothing to do - show it ticked, greyed out, and skip at install time
+    SectionSetText   ${SecGit} "Git for Windows (already installed)"
+    SectionSetFlags  ${SecGit} ${SF_SELECTED}|${SF_RO}
+  ${Else}
+    ; required - force it on and stop the user unticking it
+    SectionSetFlags  ${SecGit} ${SF_SELECTED}|${SF_RO}
+  ${EndIf}
+FunctionEnd
+
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecGit}       "syn drives the real git. If git is missing it will be downloaded and installed for you."
   !insertmacro MUI_DESCRIPTION_TEXT ${SecCore}      "The syn command-line tool. Required."
   !insertmacro MUI_DESCRIPTION_TEXT ${SecPath}      "Let you type 'syn' in any terminal. Recommended."
   !insertmacro MUI_DESCRIPTION_TEXT ${SecShortcut}  "Add ${APPNAME} to the Start Menu."

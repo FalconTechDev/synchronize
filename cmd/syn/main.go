@@ -5,6 +5,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -162,10 +163,39 @@ func main() {
 		selector = ""
 	}
 
+	if needsGit(cmd) {
+		if err := requireGit(); err != nil {
+			syn.Errorf("%v", err)
+			os.Exit(1)
+		}
+	}
+
 	if err := dispatch(cmd, rest, arg, selector, has, values); err != nil {
 		syn.Errorf("%v", err)
 		os.Exit(1)
 	}
+}
+
+func needsGit(cmd string) bool {
+	switch cmd {
+	case "help", "--help", "-h", "version", "--version", "config", "log", "auth":
+		return false
+	}
+	return true
+}
+
+func requireGit() error {
+	if _, err := exec.LookPath("git"); err == nil {
+		return nil
+	}
+	hint := "install it from https://git-scm.com/downloads"
+	if runtime.GOOS == "windows" {
+		hint = "install it with:  winget install --id Git.Git -e"
+	}
+	return fmt.Errorf("git is not installed (or not on your PATH)\n"+
+		"        synchronize drives the real git, so it needs git available.\n"+
+		"        %s\n"+
+		"        Then open a NEW terminal and try again.", hint)
 }
 
 func dispatch(cmd string, rest []string, arg func(int) string, selector string, has func(string) bool, values map[string]string) error {
