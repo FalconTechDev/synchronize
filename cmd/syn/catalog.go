@@ -44,6 +44,9 @@ var catalog = map[string]cmdInfo{
 	"config": {"[set <key> <value>]", "show or change the settings", "Account and setup"},
 	"doctor": {"", "check that git, auth and the repos are wired up", "Account and setup"},
 
+	"autostart": {"[on|off]", "sync in the background from login to shutdown", "Running in the background"},
+	"start":     {"", "run the installed watcher right now", "Running in the background"},
+
 	// Long running - the shell sends these to a real terminal
 	"watch": {"<repo|all>", "sync on a timer and publish before shutdown", "Running in the background"},
 	"serve": {"[--addr :7391]", "web dashboard with a live log", "Running in the background"},
@@ -73,6 +76,8 @@ var subHints = map[string]cmdInfo{
 	"files include": {"<repo> <glob>", "only sync paths that match", ""},
 	"files exclude": {"<repo> <glob>", "never sync paths that match", ""},
 	"files clear":   {"<repo>", "go back to syncing everything", ""},
+	"autostart on":  {"", "register the login and shutdown tasks", ""},
+	"autostart off": {"", "remove them; nothing syncs on its own", ""},
 	"config set":    {"<key> <value>", "keys: strategy, interval_minutes, backup, push_backup, notify, commit_template, keep_backup_days", ""},
 }
 

@@ -85,11 +85,14 @@ CONFLICTS
   prune <repo|all> [--days N]  delete safety branches older than N days
                            (default: keep_backup_days; --days 0 deletes all)
 
-AUTOSTART
-  install                run at startup / on shutdown via the OS scheduler
-  uninstall              remove those entries
-  autostart              show whether they are installed
-  start                  start the installed watcher now
+BACKGROUND SYNCING
+  autostart on           sync when you log in, publish before shutdown
+  autostart off          stop doing either
+  autostart              show whether it is on
+  start                  run the installed watcher right now
+
+  The installer offers to turn this on. It uses the OS scheduler, so syn
+  does not have to be running for it to come back after a reboot.
 
 OTHER
   config                 print the current configuration
@@ -407,17 +410,8 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		}
 		return cmdPrune(engine, cfg, selector, days)
 
-	case "install":
-		if err := syn.InstallAutostart(); err != nil {
-			return err
-		}
-		syn.Info("synchronize will now sync on startup and push on shutdown")
-		return nil
-	case "uninstall":
-		return syn.UninstallAutostart()
-	case "autostart":
-		fmt.Print(syn.AutostartStatus())
-		return nil
+	case "autostart", "install", "uninstall":
+		return cmdAutostart(cfg, cmd, rest)
 	case "start":
 		return syn.StartWatcherNow()
 
@@ -1274,6 +1268,69 @@ func truthy(v string) bool {
 	return false
 }
 
+// cmdAutostart is the one place that turns background syncing on and off.
+// install and uninstall are kept as the older names for the same thing.
+func cmdAutostart(cfg *syn.Config, cmd string, rest []string) error {
+	action := ""
+	switch cmd {
+	case "install":
+		action = "on"
+	case "uninstall":
+		action = "off"
+	default:
+		if len(rest) > 0 {
+			action = strings.ToLower(rest[0])
+		}
+	}
+
+	switch action {
+	case "on", "enable", "yes":
+		if len(cfg.EnabledRepos()) == 0 {
+			return fmt.Errorf("nothing to sync yet - add a repository first with `syn repo add owner/name`")
+		}
+		if err := syn.InstallAutostart(); err != nil {
+			return err
+		}
+		syn.Info("background syncing is on")
+		fmt.Println()
+		fmt.Println("  syn now syncs when you log in, and publishes your work before")
+		fmt.Println("  the machine shuts down - holding the shutdown until it has.")
+		fmt.Println()
+		fmt.Printf("  Repositories: %s\n", strings.Join(repoNames(), ", "))
+		fmt.Printf("  Checked every %s (change with: syn config set interval_minutes 30m)\n",
+			humanMinutes(cfg.IntervalMinutes))
+		fmt.Println()
+		fmt.Println("  Turn it off with: syn autostart off")
+		return nil
+
+	case "off", "disable", "no":
+		if err := syn.UninstallAutostart(); err != nil {
+			return err
+		}
+		syn.Info("background syncing is off")
+		fmt.Println("  nothing will sync on its own until you run: syn autostart on")
+		return nil
+
+	case "", "status":
+		on := syn.AutostartInstalled()
+		if on {
+			fmt.Println("  background syncing is ON")
+		} else {
+			fmt.Println("  background syncing is OFF")
+		}
+		fmt.Println()
+		fmt.Print(syn.AutostartStatus())
+		fmt.Println()
+		if on {
+			fmt.Println("  Turn it off with: syn autostart off")
+		} else {
+			fmt.Println("  Turn it on with:  syn autostart on")
+		}
+		return nil
+	}
+	return fmt.Errorf("say `syn autostart on`, `syn autostart off`, or `syn autostart` to see the state")
+}
+
 func cmdDoctor(e *syn.Engine, cfg *syn.Config) error {
 	fmt.Printf("synchronize %s on %s/%s\n", Version, runtime.GOOS, runtime.GOARCH)
 	if out, err := exechelp(); err != nil {
@@ -1283,8 +1340,11 @@ func cmdDoctor(e *syn.Engine, cfg *syn.Config) error {
 	}
 	fmt.Printf("  home:       %s\n", syn.Home())
 	fmt.Printf("  repos:      %d registered\n", len(cfg.Repos))
-	fmt.Println("  autostart:")
-	fmt.Print(syn.AutostartStatus())
+	state := "OFF - nothing syncs on its own (turn on: syn autostart on)"
+	if syn.AutostartInstalled() {
+		state = "ON - syncs at login, publishes before shutdown"
+	}
+	fmt.Printf("  background: %s\n", state)
 
 	var problems []string
 	for i := range cfg.Repos {

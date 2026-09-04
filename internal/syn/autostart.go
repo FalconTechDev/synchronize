@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 func ExePath() (string, error) {
@@ -20,4 +21,9 @@ func ExePath() (string, error) {
 func run(name string, args ...string) (string, error) {
 	out, err := exec.Command(name, args...).CombinedOutput()
 	return string(out), err
+}
+
+// AutostartInstalled reports whether background syncing is currently set up.
+func AutostartInstalled() bool {
+	return !strings.Contains(AutostartStatus(), "not installed")
 }
