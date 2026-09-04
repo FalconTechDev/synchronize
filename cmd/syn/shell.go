@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -67,16 +65,18 @@ func cmdShell() error {
 	fmt.Printf("\n%sType a command, %shelp%s%s for the list, %sexit%s%s to leave.%s\n\n",
 		cDim, cBold, cReset, cDim, cBold, cReset, cDim, cReset)
 
-	in := bufio.NewScanner(os.Stdin)
-	in.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	ed := newEditor()
+	commands := shellCommands()
 
 	for {
-		fmt.Print(prompt())
-		if !in.Scan() {
-			fmt.Println()
+		complete := func(partial string) ([]string, string) {
+			return completeLine(partial, commands, repoNames())
+		}
+		line, ok := ed.Read(prompt(), complete)
+		if !ok {
+			fmt.Printf("%sbye%s\n", cDim, cReset)
 			return nil
 		}
-		line := strings.TrimSpace(in.Text())
 		if line == "" {
 			continue
 		}
@@ -266,4 +266,25 @@ func splitArgs(line string) ([]string, error) {
 		return nil, fmt.Errorf("empty command")
 	}
 	return args, nil
+}
+
+func repoNames() []string {
+	cfg, err := syn.LoadConfig()
+	if err != nil {
+		return nil
+	}
+	out := make([]string, 0, len(cfg.Repos))
+	for i := range cfg.Repos {
+		out = append(out, cfg.Repos[i].Name)
+	}
+	return out
+}
+
+func shellCommands() []string {
+	return []string{
+		"pull", "push", "sync", "status", "diff", "ls", "list", "init", "repo",
+		"enable", "disable", "remove", "set", "files", "hook", "resolve",
+		"backups", "restore", "prune", "log", "notify", "config", "doctor",
+		"version", "auth", "help", "clear", "exit",
+	}
 }

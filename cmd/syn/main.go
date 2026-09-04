@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/FalconTechDev/synchronize/internal/syn"
+	"golang.org/x/term"
 )
 
 var Version = "dev"
@@ -680,6 +682,37 @@ func cmdRepo(cfg *syn.Config, creds *syn.Credentials, engine *syn.Engine, rest [
 	}
 }
 
+// confirmDestination shows where the clone will land and, when a person is
+// watching, lets them put it somewhere else before anything is downloaded.
+func confirmDestination(slug, suggested string) (string, error) {
+	fmt.Println()
+	fmt.Printf("  %s will be cloned into:\n", slug)
+	fmt.Printf("      %s%s%s\n\n", cBold, suggested, cReset)
+
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		return "", nil
+	}
+
+	fmt.Printf("  %sPress Enter to accept, or type another folder:%s ", cDim, cReset)
+	in := bufio.NewReader(os.Stdin)
+	answer, err := in.ReadString('\n')
+	if err != nil {
+		fmt.Println()
+		return "", nil
+	}
+	answer = strings.TrimSpace(answer)
+	fmt.Println()
+	if answer == "" {
+		return "", nil
+	}
+	chosen, err := filepath.Abs(answer)
+	if err != nil {
+		return "", fmt.Errorf("%q is not a usable path: %w", answer, err)
+	}
+	syn.Info("using %s", chosen)
+	return chosen, nil
+}
+
 func cmdRepoAdd(cfg *syn.Config, creds *syn.Credentials, slug string, values map[string]string) error {
 	token := creds.Token("github.com")
 	gh := syn.NewGitHub(token)
@@ -718,7 +751,14 @@ func cmdRepoAdd(cfg *syn.Config, creds *syn.Credentials, slug string, values map
 		interval = n
 	}
 
-	
+	if values["--path"] == "" {
+		if chosen, err := confirmDestination(slug, abs); err != nil {
+			return err
+		} else if chosen != "" {
+			abs = chosen
+		}
+	}
+
 	if existing := cfg.Find(abs); existing != nil {
 		return fmt.Errorf("already registered as %q", existing.Name)
 	}

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "syn-app",
+  "outputfilename": "syn-app",
+  "frontend:dir": "frontend",
+  "wailsjsdir": "frontend",
+  "author": {
+    "name": "FalconTechDev"
+  },
+  "info": {
+    "productName": "synchronize",
+    "productVersion": "1.0.1",
+    "companyName": "FalconTechDev",
+    "copyright": "MIT License",
+    "comments": "Automatic git sync across your machines"
+  }
+}
