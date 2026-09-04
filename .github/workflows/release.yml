@@ -56,13 +56,13 @@ jobs:
         if: matrix.goos == 'windows'
         shell: pwsh
         run: |
-          go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest
-          Copy-Item syn.exe cmd\syn-setup\syn.exe
-          Copy-Item internal\syn\assets\tray.png cmd\syn-setup\logo.png
-          Push-Location cmd\syn-setup
-          & "$(go env GOPATH)\bin\goversioninfo.exe" -o resource_windows_amd64.syso versioninfo.json
+          $ver = "${{ github.ref_name }}" -replace '^v',''
+          New-Item -ItemType Directory -Force -Path bin, dist | Out-Null
+          Copy-Item syn.exe bin\syn.exe
+          Push-Location installer
+          & "${env:ProgramFiles(x86)}\NSIS\makensis.exe" "-DAPPVERSION=$ver" syn.nsi
           Pop-Location
-          go build -ldflags="-s -w -X main.Version=${{ github.ref_name }}" -o syn-setup.exe ./cmd/syn-setup/
+          Copy-Item dist\syn-setup.exe syn-setup.exe
 
       - name: Package (Windows)
         if: matrix.goos == 'windows'
