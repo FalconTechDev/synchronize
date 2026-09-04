@@ -40,60 +40,56 @@ func (e *editor) Read(prompt string, complete func(string) ([]string, string)) (
 	var line []rune
 	pos := 0
 	e.hpos = len(e.history)
-	hintShown := false
-	// Set by Tab to show the candidates for one keystroke only, so the list
-	// never ends up in the scrollback.
-	pending := ""
+	pending := "" // set by Tab, shown until the next keystroke
 
-	redraw := func() {
-		fmt.Print("\r\033[K" + prompt + string(line))
-		if pos < len(line) {
-			fmt.Printf("\033[%dD", len(line)-pos)
-		}
-	}
+	promptW := visibleWidth(prompt)
 
-	clearHint := func() {
-		if hintShown {
-			fmt.Print("\0337\n\033[K\0338")
-			hintShown = false
-		}
-	}
-
-	showHint := func() {
-		clearHint()
+	// Everything lives on the prompt line: the hint trails the input in grey
+	// and the cursor is put back afterwards. No line above or below is ever
+	// touched, so scrolling cannot leave a stray hint in the scrollback.
+	draw := func() {
 		hint := pending
-		pending = ""
 		if hint == "" {
 			_, hint = complete(string(line[:pos]))
 		}
-		if hint == "" {
-			return
+
+		out := "\r\033[K" + prompt + string(line)
+		if hint != "" {
+			room := termWidth() - promptW - len(line) - 4
+			if room > 8 {
+				out += "   " + cDim + clip(hint, room) + cReset
+			}
 		}
-		fmt.Print("\0337\n\033[K" + cDim + hint + cReset + "\0338")
-		hintShown = true
+		out += "\r"
+		if n := promptW + pos; n > 0 {
+			out += fmt.Sprintf("\033[%dC", n)
+		}
+		fmt.Print(out)
 	}
 
-	redraw()
-	showHint()
+	// finish drops the hint and leaves the cursor on a fresh line.
+	finish := func() {
+		pending = ""
+		fmt.Print("\r\033[K" + prompt + string(line) + "\r\n")
+	}
+
+	draw()
 
 	buf := make([]byte, 1)
 	for {
 		n, err := os.Stdin.Read(buf)
 		if err != nil || n == 0 {
-			clearHint()
-			fmt.Print("\r\n")
+			finish()
 			return "", false
 		}
 
 		switch b := buf[0]; b {
 		case 3, 4: // Ctrl+C, Ctrl+D
-			clearHint()
-			fmt.Print("\r\n")
+			finish()
 			return "", false
 
 		case 13, 10: // Enter
-			clearHint()
-			fmt.Print("\r\n")
+			finish()
 			s := strings.TrimSpace(string(line))
 			if s != "" {
 				e.history = append(e.history, s)
@@ -102,24 +98,24 @@ func (e *editor) Read(prompt string, complete func(string) ([]string, string)) (
 
 		case 9: // Tab
 			options, _ := complete(string(line[:pos]))
-			if len(options) == 1 {
+			switch {
+			case len(options) == 1:
 				_, start := lastWord(string(line[:pos]))
 				rest := []rune(options[0] + " ")
 				line = append([]rune(string(line[:start])), append(rest, line[pos:]...)...)
 				pos = start + len(rest)
-				redraw()
-				showHint()
-			} else if len(options) > 1 {
-				pending = fit(strings.Join(options, "   "))
-				showHint()
+				pending = ""
+			case len(options) > 1:
+				pending = strings.Join(options, "   ")
 			}
+			draw()
 
 		case 127, 8: // Backspace
 			if pos > 0 {
 				line = append(line[:pos-1], line[pos:]...)
 				pos--
-				redraw()
-				showHint()
+				pending = ""
+				draw()
 			}
 
 		case 27: // escape sequence
@@ -130,14 +126,14 @@ func (e *editor) Read(prompt string, complete func(string) ([]string, string)) (
 			if seq[0] != '[' {
 				continue
 			}
+			pending = ""
 			switch seq[1] {
 			case 'A': // up
 				if e.hpos > 0 {
 					e.hpos--
 					line = []rune(e.history[e.hpos])
 					pos = len(line)
-					redraw()
-					showHint()
+					draw()
 				}
 			case 'B': // down
 				if e.hpos < len(e.history)-1 {
@@ -148,24 +144,23 @@ func (e *editor) Read(prompt string, complete func(string) ([]string, string)) (
 					line = nil
 				}
 				pos = len(line)
-				redraw()
-				showHint()
+				draw()
 			case 'C': // right
 				if pos < len(line) {
 					pos++
-					redraw()
+					draw()
 				}
 			case 'D': // left
 				if pos > 0 {
 					pos--
-					redraw()
+					draw()
 				}
 			case 'H':
 				pos = 0
-				redraw()
+				draw()
 			case 'F':
 				pos = len(line)
-				redraw()
+				draw()
 			}
 
 		default:
@@ -184,11 +179,11 @@ func (e *editor) Read(prompt string, complete func(string) ([]string, string)) (
 				case b>>3 == 0b11110:
 					extra = 3
 				}
-				seq := append([]byte{b}, make([]byte, extra)...)
+				rest := make([]byte, extra)
 				if extra > 0 {
-					os.Stdin.Read(seq[1:])
+					os.Stdin.Read(rest)
 				}
-				rs := []rune(string(seq))
+				rs := []rune(string(append([]byte{b}, rest...)))
 				if len(rs) == 0 {
 					continue
 				}
@@ -196,8 +191,8 @@ func (e *editor) Read(prompt string, complete func(string) ([]string, string)) (
 			}
 			line = append(line[:pos], append([]rune{r}, line[pos:]...)...)
 			pos++
-			redraw()
-			showHint()
+			pending = ""
+			draw()
 		}
 	}
 }
@@ -220,8 +215,8 @@ func lastWord(s string) (string, int) {
 }
 
 // completeLine works out which word the cursor sits on and offers whatever
-// belongs there: a command, a subcommand, a repository, or nothing but a
-// reminder of what the command still expects.
+// belongs there: a command, a subcommand, a repository or a hook event, plus
+// a reminder of what the command still expects.
 func completeLine(line string, commands, repos []string) ([]string, string) {
 	word, _ := lastWord(line)
 	fields := strings.Fields(line)
@@ -278,11 +273,7 @@ func completeLine(line string, commands, repos []string) ([]string, string) {
 	}
 
 	if events, ok := eventWord[key]; ok && idx == eventPos[key] {
-		options := matching(events, word)
-		if len(options) == 0 {
-			return nil, fit("event: " + strings.Join(events, "   "))
-		}
-		return options, fit("event: " + strings.Join(events, "   "))
+		return matching(events, word), fit("event: " + strings.Join(events, "   "))
 	}
 
 	return nil, hintFor(key)
@@ -306,7 +297,6 @@ var eventWord = map[string][]string{
 
 var eventPos = map[string]int{"hook add": 3, "hook run": 3, "hook clear": 3}
 
-// subcommands drive the second word of the commands that have one.
 var subcommands = map[string][]string{
 	"auth":   {"login", "logout", "status", "setup"},
 	"repo":   {"add", "ls"},
@@ -333,25 +323,24 @@ var argHints = map[string]string{
 	"auth login":   "[--pat <token>]",
 	"auth setup":   "<github oauth client id>",
 	"config set":   "<key> <value>   keys: strategy, interval_minutes, backup, notify, …",
-	"files":        "<repo>   then: include | exclude | clear",
 	"set":          "<repo> <name|remote|branch|interval> <value>",
 	"restore":      "<repo> <backup-branch>",
 	"resolve":      "<repo> [--ours | --theirs | --abort]",
-	"prune":        "<repo> [--days N]",
-	"pull":         "[--force]",
-	"push":         "[--force]",
-	"status":       "[--fetch]",
+	"prune":        "<repo|all> [--days N]",
+	"pull":         "<repo|all> [--force]",
+	"push":         "<repo|all> [--force]",
+	"sync":         "<repo|all>",
+	"status":       "<repo|all> [--fetch]",
+	"diff":         "<repo|all>",
+	"watch":        "<repo|all>",
+	"backups":      "<repo>",
+	"remove":       "<repo>   stops tracking; the files stay",
+	"enable":       "<repo>",
+	"disable":      "<repo>",
+	"files":        "<include|exclude|clear> <repo> <glob>",
 	"log":          "[n] [--live]",
 	"init":         "[path]   defaults to the current directory",
-}
-
-func takesRepo(cmd string) bool {
-	switch cmd {
-	case "pull", "push", "sync", "status", "diff", "remove", "enable", "disable",
-		"set", "resolve", "backups", "restore", "prune", "files", "hook", "watch":
-		return true
-	}
-	return false
+	"serve":        "[--addr :7391]",
 }
 
 func matching(pool []string, prefix string) []string {
@@ -365,15 +354,39 @@ func matching(pool []string, prefix string) []string {
 	return out
 }
 
-// fit keeps a hint on one line so it never wraps and corrupts the redraw.
-func fit(s string) string {
-	width, _, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil || width < 20 {
-		width = 100
+func termWidth() int {
+	w, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || w < 20 {
+		return 100
 	}
+	return w
+}
+
+// fit keeps a hint within the terminal so the prompt line never wraps.
+func fit(s string) string { return clip(s, termWidth()-1) }
+
+func clip(s string, max int) string {
 	r := []rune(s)
-	if len(r) <= width-1 {
+	if max < 2 || len(r) <= max {
 		return s
 	}
-	return string(r[:width-2]) + "…"
+	return string(r[:max-1]) + "…"
+}
+
+// visibleWidth measures a string as the terminal draws it, ignoring colours.
+func visibleWidth(s string) int {
+	n, inEsc := 0, false
+	for _, r := range s {
+		switch {
+		case inEsc:
+			if r == 'm' {
+				inEsc = false
+			}
+		case r == 0x1b:
+			inEsc = true
+		default:
+			n++
+		}
+	}
+	return n
 }

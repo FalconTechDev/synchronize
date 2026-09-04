@@ -24,38 +24,64 @@ var shellTopics = []struct {
 	Commands [][2]string
 }{
 	{"Syncing", [][2]string{
-		{"pull [repo]", "bring remote changes in"},
-		{"push [repo]", "commit and publish local work"},
-		{"sync [repo]", "pull, then push"},
-		{"status [repo]", "show what would happen"},
-		{"diff [repo]", "show uncommitted changes"},
+		{"pull <repo|all>", "bring remote changes in"},
+		{"push <repo|all>", "commit and publish local work"},
+		{"sync <repo|all>", "pull, then push"},
+		{"status <repo|all>", "show what would happen"},
+		{"diff <repo|all>", "show uncommitted changes"},
 	}},
 	{"Repositories", [][2]string{
 		{"ls", "list registered repositories"},
 		{"init [path]", "register the repo at path"},
 		{"repo add <owner/repo>", "clone from GitHub and register"},
-		{"enable / disable <repo>", "include or exclude from --all"},
+		{"repo ls", "list your repositories on GitHub"},
+		{"enable / disable <repo>", "include in, or exclude from, all"},
 		{"remove <repo>", "stop tracking (files untouched)"},
-		{"set <repo> <k> <v>", "change name, remote, branch, interval"},
+		{"set <repo> <k> <v>", "name, remote, branch, interval"},
+		{"files <repo>", "which paths to sync"},
 	}},
 	{"Hooks", [][2]string{
 		{"hook ls", "show configured hooks"},
 		{"hook add <repo> <event> <cmd>", "run a command after a sync"},
 		{"hook run <repo> <event>", "try a hook right now"},
 		{"hook clear <repo> [event]", "remove hooks"},
+		{"hook timeout <repo> <secs>", "how long a hook may run"},
 	}},
-	{"Conflicts", [][2]string{
+	{"Conflicts and safety", [][2]string{
 		{"resolve <repo>", "replay the conflict into your tree"},
 		{"resolve <repo> --ours", "keep your side everywhere"},
 		{"resolve <repo> --theirs", "keep the remote side"},
+		{"resolve <repo> --abort", "give up on the rebase or merge"},
 		{"backups <repo>", "list safety branches"},
+		{"restore <repo> <ref>", "move the branch onto a safety branch"},
+		{"prune <repo|all> [--days N]", "delete old safety branches"},
+	}},
+	{"Account and setup", [][2]string{
+		{"auth login [--pat <token>]", "sign in to GitHub"},
+		{"auth status", "show who is signed in"},
+		{"auth logout", "forget the stored token"},
+		{"config", "print the current configuration"},
+		{"config set <k> <v>", "change a setting"},
+		{"doctor", "check that everything is wired up"},
+		{"version", "print the version"},
 	}},
 	{"This session", [][2]string{
 		{"help", "show this list"},
-		{"log [n]", "recent log lines"},
+		{"log [n] [--live]", "recent log lines"},
 		{"clear", "clear the screen"},
 		{"exit", "leave the shell"},
 	}},
+}
+
+// These keep running until stopped, so the shell points at a real terminal
+// rather than freezing the session.
+var longRunning = map[string]string{
+	"watch":     "syncs until you stop it",
+	"serve":     "runs a web dashboard until you stop it",
+	"tray":      "sits in the tray until you quit it",
+	"install":   "changes OS scheduler entries",
+	"uninstall": "changes OS scheduler entries",
+	"start":     "launches the installed watcher",
 }
 
 func cmdShell() error {
@@ -103,9 +129,11 @@ func cmdShell() error {
 		case "shell":
 			fmt.Printf("%salready in the shell%s\n\n", cDim, cReset)
 			continue
-		case "watch", "serve", "install", "uninstall", "start", "tray":
-			fmt.Printf("%s%s runs until stopped - start it from a normal terminal instead:%s\n",
-				cWarn, args[0], cReset)
+		}
+
+		if why, ok := longRunning[args[0]]; ok {
+			fmt.Printf("%s%s %s - run it from a normal terminal:%s\n",
+				cWarn, args[0], why, cReset)
 			fmt.Printf("  syn %s\n\n", strings.Join(args, " "))
 			continue
 		}

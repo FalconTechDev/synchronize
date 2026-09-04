@@ -513,18 +513,50 @@ func cmdList(cfg *syn.Config) error {
 		fmt.Println("no repositories registered - run `syn init` inside a git repo")
 		return nil
 	}
+	width := 4
 	for _, r := range cfg.Repos {
-		state := "enabled"
-		if !r.Enabled {
-			state = "disabled"
+		if n := len(r.Name); n > width {
+			width = n
 		}
+	}
+
+	for _, r := range cfg.Repos {
 		branch := r.Branch
 		if branch == "" {
-			branch = "(current)"
+			branch = "(current branch)"
 		}
-		fmt.Printf("%-20s %-8s %s [%s %s]\n", r.Name, state, r.Path, r.Remote, branch)
+		every := fmt.Sprintf("every %s", humanMinutes(cfg.IntervalFor(&r)))
+		if !r.Enabled {
+			every = "paused"
+		}
+
+		fmt.Printf("  %-*s  %-16s  %s\n", width, r.Name, every, r.Remote+"/"+branch)
+		fmt.Printf("  %-*s  %s\n", width, "", r.Path)
+		if !r.Hooks.IsEmpty() {
+			n := len(r.Hooks.AfterPull) + len(r.Hooks.AfterPush) + len(r.Hooks.OnConflict)
+			fmt.Printf("  %-*s  %s\n", width, "", plural(n, "hook")+" configured")
+		}
 	}
+	fmt.Printf("\n  Name one of these, or \"all\", when you pull, push or sync.\n")
 	return nil
+}
+
+func humanMinutes(m int) string {
+	switch {
+	case m%(24*60) == 0 && m >= 24*60:
+		return plural(m/(24*60), "day")
+	case m%60 == 0 && m >= 60:
+		return plural(m/60, "hour")
+	default:
+		return plural(m, "minute")
+	}
+}
+
+func plural(n int, word string) string {
+	if n == 1 {
+		return fmt.Sprintf("%d %s", n, word)
+	}
+	return fmt.Sprintf("%d %ss", n, word)
 }
 
 func cmdRemove(cfg *syn.Config, key string) error {
