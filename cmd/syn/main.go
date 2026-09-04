@@ -85,14 +85,16 @@ CONFLICTS
   prune <repo|all> [--days N]  delete safety branches older than N days
                            (default: keep_backup_days; --days 0 deletes all)
 
-BACKGROUND SYNCING
-  autostart on           sync when you log in, publish before shutdown
-  autostart off          stop doing either
-  autostart              show whether it is on
-  start                  run the installed watcher right now
+AUTOMATIC SYNCING
+  auto on                let syn keep the repositories in step by itself
+  auto off               stop; you pull and push by hand again
+  auto                   show whether it is on, and what it does
+  start                  run the watcher right now without waiting for login
 
-  The installer offers to turn this on. It uses the OS scheduler, so syn
-  does not have to be running for it to come back after a reboot.
+  With it on: a watcher starts at login and syncs on a timer, and your work
+  is published before the machine shuts down - the shutdown waits for it.
+  The interval is interval_minutes (default 10). The installer offers to
+  switch this on for you.
 
 OTHER
   config                 print the current configuration
@@ -410,7 +412,7 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		}
 		return cmdPrune(engine, cfg, selector, days)
 
-	case "autostart", "install", "uninstall":
+	case "auto", "autostart", "install", "uninstall":
 		return cmdAutostart(cfg, cmd, rest)
 	case "start":
 		return syn.StartWatcherNow()
@@ -1291,44 +1293,61 @@ func cmdAutostart(cfg *syn.Config, cmd string, rest []string) error {
 		if err := syn.InstallAutostart(); err != nil {
 			return err
 		}
-		syn.Info("background syncing is on")
 		fmt.Println()
-		fmt.Println("  syn now syncs when you log in, and publishes your work before")
-		fmt.Println("  the machine shuts down - holding the shutdown until it has.")
-		fmt.Println()
-		fmt.Printf("  Repositories: %s\n", strings.Join(repoNames(), ", "))
-		fmt.Printf("  Checked every %s (change with: syn config set interval_minutes 30m)\n",
-			humanMinutes(cfg.IntervalMinutes))
-		fmt.Println()
-		fmt.Println("  Turn it off with: syn autostart off")
+		fmt.Println("  Automatic syncing is ON.")
+		describeAuto(cfg)
 		return nil
 
 	case "off", "disable", "no":
 		if err := syn.UninstallAutostart(); err != nil {
 			return err
 		}
-		syn.Info("background syncing is off")
-		fmt.Println("  nothing will sync on its own until you run: syn autostart on")
+		fmt.Println()
+		fmt.Println("  Automatic syncing is OFF.")
+		fmt.Println("  Nothing syncs on its own now - you pull and push by hand.")
+		fmt.Println("  Turn it back on with: syn auto on")
 		return nil
 
 	case "", "status":
-		on := syn.AutostartInstalled()
-		if on {
-			fmt.Println("  background syncing is ON")
-		} else {
-			fmt.Println("  background syncing is OFF")
-		}
 		fmt.Println()
-		fmt.Print(syn.AutostartStatus())
-		fmt.Println()
-		if on {
-			fmt.Println("  Turn it off with: syn autostart off")
+		if syn.AutostartInstalled() {
+			fmt.Println("  Automatic syncing is ON.")
+			describeAuto(cfg)
 		} else {
-			fmt.Println("  Turn it on with:  syn autostart on")
+			fmt.Println("  Automatic syncing is OFF.")
+			fmt.Println("  Nothing syncs on its own - you pull and push by hand.")
+			fmt.Println()
+			fmt.Println("  Turn it on with: syn auto on")
 		}
 		return nil
 	}
-	return fmt.Errorf("say `syn autostart on`, `syn autostart off`, or `syn autostart` to see the state")
+	return fmt.Errorf("say `syn auto on`, `syn auto off`, or `syn auto` to see the state")
+}
+
+// describeAuto spells out the three separate things that get switched on,
+// because "automatic" on its own does not say what happens when.
+func describeAuto(cfg *syn.Config) {
+	rows := [][2]string{
+		{"At login", "a watcher starts in the background"},
+		{"Every " + humanMinutes(cfg.IntervalMinutes), "it pulls what is new and publishes what you wrote"},
+		{"At shutdown", "it publishes anything left, and holds the shutdown until that has finished"},
+	}
+	width := 0
+	for _, r := range rows {
+		if n := len(r[0]); n > width {
+			width = n
+		}
+	}
+
+	fmt.Println()
+	for _, r := range rows {
+		fmt.Printf("  %-*s   %s\n", width, r[0], r[1])
+	}
+	fmt.Println()
+	fmt.Printf("  Watching: %s\n", strings.Join(repoNames(), ", "))
+	fmt.Println()
+	fmt.Println("  Change how often it looks:  syn config set interval_minutes 30m")
+	fmt.Println("  Turn it off with:           syn auto off")
 }
 
 func cmdDoctor(e *syn.Engine, cfg *syn.Config) error {
@@ -1340,7 +1359,7 @@ func cmdDoctor(e *syn.Engine, cfg *syn.Config) error {
 	}
 	fmt.Printf("  home:       %s\n", syn.Home())
 	fmt.Printf("  repos:      %d registered\n", len(cfg.Repos))
-	state := "OFF - nothing syncs on its own (turn on: syn autostart on)"
+	state := "OFF - nothing syncs on its own (turn on: syn auto on)"
 	if syn.AutostartInstalled() {
 		state = "ON - syncs at login, publishes before shutdown"
 	}

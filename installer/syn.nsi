@@ -204,7 +204,7 @@ SectionEnd
 
 Section /o "Sync in the background" SecAutostart
   DetailPrint "Registering the startup and shutdown tasks..."
-  nsExec::ExecToLog '"$INSTDIR\syn.exe" autostart on --quiet'
+  nsExec::ExecToLog '"$INSTDIR\syn.exe" auto on --quiet'
   Pop $0
   ${If} $0 == 0
     DetailPrint "syn will sync when you log in and publish before shutdown."
@@ -252,12 +252,12 @@ FunctionEnd
   !insertmacro MUI_DESCRIPTION_TEXT ${SecCore}      "The syn command-line tool. Required."
   !insertmacro MUI_DESCRIPTION_TEXT ${SecPath}      "Let you type 'syn' in any terminal. Recommended."
   !insertmacro MUI_DESCRIPTION_TEXT ${SecShortcut}  "Add ${APPNAME} to the Start Menu."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SecAutostart} "Sync when you log in, and publish your work before the machine shuts down. You can change this later with: syn autostart on|off"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecAutostart} "Sync when you log in, and publish your work before the machine shuts down. You can change this later with: syn auto on|off"
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 ; ---------------------------------------------------------------- uninstall
 Section "Uninstall"
-  nsExec::Exec '"$INSTDIR\syn.exe" autostart off --quiet'
+  nsExec::Exec '"$INSTDIR\syn.exe" auto off --quiet'
   Pop $0
   nsExec::Exec 'taskkill /F /IM syn.exe'
   Pop $0
