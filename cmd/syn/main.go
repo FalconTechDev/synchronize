@@ -1342,6 +1342,11 @@ func applyConfigKey(cfg *syn.Config, key, value string) error {
 		}
 		cfg.Notify = value
 	case "commit_template":
+		if unknown := syn.UnknownPlaceholders(value); len(unknown) > 0 {
+			return fmt.Errorf("%s means nothing to syn and would end up in the commit as written\n"+
+				"        the ones it fills in are: {host}, {time}",
+				strings.Join(unknown, ", "))
+		}
 		cfg.CommitTemplate = value
 	default:
 		return fmt.Errorf("unknown key %q", key)

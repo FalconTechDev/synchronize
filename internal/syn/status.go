@@ -61,7 +61,12 @@ func (s RepoStatus) String() string {
 	fmt.Fprintf(&b, "  branch:   %s -> %s/%s\n", s.Branch, s.Repo.Remote, orDefault(s.Repo.Branch, s.Branch))
 	state := "clean"
 	if s.Dirty {
-		state = fmt.Sprintf("%d uncommitted change(s)", len(s.Changed))
+		state = plural(len(s.Changed), "uncommitted change")
+		// A conflicted file is not an ordinary edit, and counting it as one
+		// makes the line read as if nothing were wrong.
+		if s.Conflict != nil {
+			state += " - some of them conflicted, see below"
+		}
 	}
 	fmt.Fprintf(&b, "  local:    %s\n", state)
 	fmt.Fprintf(&b, "  vs remote: %d ahead, %d behind\n", s.Ahead, s.Behind)

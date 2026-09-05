@@ -591,3 +591,25 @@ func WouldHoldBack(r *Repo) []FileChange {
 	_, hold := splitHeldBack(ChangedFilesDetailed(r.Path), r.NoCommit)
 	return hold
 }
+
+// UnknownPlaceholders finds {things} in a commit template that syn does not
+// fill in, so they are caught before they reach the history verbatim.
+func UnknownPlaceholders(template string) []string {
+	known := map[string]bool{"{host}": true, "{time}": true}
+	var unknown []string
+	for {
+		i := strings.Index(template, "{")
+		if i < 0 {
+			return unknown
+		}
+		j := strings.Index(template[i:], "}")
+		if j < 0 {
+			return unknown
+		}
+		token := template[i : i+j+1]
+		if !known[token] {
+			unknown = append(unknown, token)
+		}
+		template = template[i+j+1:]
+	}
+}
