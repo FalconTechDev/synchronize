@@ -261,6 +261,15 @@ func (e *Engine) integrate(r *Repo, branch string) (conflicted bool, files []str
 // ~/.synchronize/config.json - never inside the repository - so a command can
 // only ever come from this machine, not from whoever pushed last.
 func (e *Engine) withHooks(r *Repo, op string, run func(*Repo) Result) Result {
+	// One repository, one worker. The watcher, the login task and whatever
+	// you type can all arrive at the same working tree at once; two rebases
+	// in it leave a state neither of them can finish.
+	lock, err := LockRepo(r.Name, 90*time.Second)
+	if err != nil {
+		return Result{Repo: r.Name, Err: err}
+	}
+	defer lock.Release()
+
 	res := run(r)
 
 	if res.Conflict != nil {

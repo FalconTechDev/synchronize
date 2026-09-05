@@ -3,6 +3,7 @@ package syn
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -51,7 +52,7 @@ func (s *State) Save() error {
 	if err != nil {
 		return err
 	}
-	tmp := statePath() + ".tmp"
+	tmp := fmt.Sprintf("%s.%d.tmp", statePath(), os.Getpid())
 	if err := os.WriteFile(tmp, b, 0o600); err != nil {
 		return err
 	}

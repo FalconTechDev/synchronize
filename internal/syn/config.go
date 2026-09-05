@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 )
 
 type Repo struct {
@@ -146,6 +147,15 @@ func LoadConfig() (*Config, error) {
 }
 
 func (c *Config) Save() error {
+	// Hold the lock across the write so two processes cannot both replace the
+	// file, and give the temporary file a name of its own - a fixed one had
+	// them fighting over the same path.
+	lock, err := LockConfig(10 * time.Second)
+	if err != nil {
+		return err
+	}
+	defer lock.Release()
+
 	if err := os.MkdirAll(Home(), 0o755); err != nil {
 		return err
 	}
@@ -153,7 +163,7 @@ func (c *Config) Save() error {
 	if err != nil {
 		return err
 	}
-	tmp := configPath() + ".tmp"
+	tmp := fmt.Sprintf("%s.%d.tmp", configPath(), os.Getpid())
 	if err := os.WriteFile(tmp, b, 0o600); err != nil {
 		return err
 	}
