@@ -74,10 +74,21 @@ jobs:
           chmod +x install.sh ${{ matrix.binary }}
           tar czf ${{ matrix.asset_name }} ${{ matrix.binary }} install.sh
 
+      # A binary people download and run should be checkable against
+      # something, even without a signing certificate.
+      - name: Checksums
+        shell: bash
+        run: |
+          for f in ${{ matrix.asset_name }} syn-setup.exe; do
+            [ -f "$f" ] && sha256sum "$f" >> checksums-${{ matrix.goos }}-${{ matrix.goarch }}.txt
+          done
+          cat checksums-${{ matrix.goos }}-${{ matrix.goarch }}.txt
+
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             ${{ matrix.asset_name }}
+            checksums-${{ matrix.goos }}-${{ matrix.goarch }}.txt
             ${{ matrix.goos == 'windows' && 'syn-setup.exe' || '' }}
           generate_release_notes: true

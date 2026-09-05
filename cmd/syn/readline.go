@@ -308,6 +308,7 @@ var repoWord = map[string]int{
 	"pull": 1, "push": 1, "sync": 1, "status": 1, "diff": 1, "watch": 1,
 	"remove": 1, "enable": 1, "disable": 1, "set": 1, "resolve": 1,
 	"backups": 1, "restore": 1, "prune": 1,
+	"path": 1, "undo": 1, "pause": 1, "ignore": 1,
 	"files include": 2, "files exclude": 2, "files clear": 2,
 	"hook add": 2, "hook run": 2, "hook clear": 2, "hook timeout": 2,
 }

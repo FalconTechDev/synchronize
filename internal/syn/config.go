@@ -28,6 +28,22 @@ type Repo struct {
 	Exclude []string `json:"exclude,omitempty"`
 
 	Hooks Hooks `json:"hooks,omitempty"`
+
+	// PausedUntil leaves this repository out of automatic syncing for a
+	// while, without the "off and forgotten" of pausing it for good.
+	PausedUntil time.Time `json:"paused_until,omitempty"`
+
+	// NoCommit are paths an automatic commit steps over. The file rules say
+	// what is checked out; this says what syn will not commit for you.
+	NoCommit []string `json:"no_commit,omitempty"`
+}
+
+// SyncsByItself reports whether automatic syncing should touch this one.
+func (r *Repo) SyncsByItself() bool {
+	if !r.Enabled {
+		return false
+	}
+	return r.PausedUntil.IsZero() || time.Now().After(r.PausedUntil)
 }
 
 type Hooks struct {
@@ -232,7 +248,7 @@ func (c *Config) pickHint() string {
 func (c *Config) EnabledRepos() []*Repo {
 	var out []*Repo
 	for i := range c.Repos {
-		if c.Repos[i].Enabled {
+		if c.Repos[i].SyncsByItself() {
 			out = append(out, &c.Repos[i])
 		}
 	}

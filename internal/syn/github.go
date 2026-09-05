@@ -339,3 +339,13 @@ func (g *GitHub) DeleteRepo(slug string) error {
 	}
 	return fmt.Errorf("GitHub API delete repo: %s", resp.Status)
 }
+
+// RepoNameFromURL takes the last path segment of a clone URL, so
+// https://gitlab.com/group/thing.git becomes "thing".
+func RepoNameFromURL(raw string) string {
+	s := strings.TrimSuffix(strings.TrimSuffix(strings.TrimSpace(raw), "/"), ".git")
+	if i := strings.LastIndexAny(s, "/:"); i >= 0 {
+		s = s[i+1:]
+	}
+	return strings.TrimSuffix(s, ".git")
+}

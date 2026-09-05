@@ -3,6 +3,7 @@ package syn
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -190,9 +191,24 @@ func (e *Engine) autoCommit(r *Repo) (bool, []FileChange, error) {
 		return false, nil, err
 	}
 	files := ChangedFilesDetailed(r.Path)
-	if _, err := git(r.Path, "add", "-A"); err != nil {
+
+	// Anything held back stays on disk and out of the commit. `add -A` would
+	// otherwise sweep in the very files you asked it not to.
+	kept, held := splitHeldBack(files, r.NoCommit)
+	if len(held) > 0 {
+		Debug("%s: holding back %d file(s) from the commit", r.Name, len(held))
+		for _, f := range kept {
+			if _, err := git(r.Path, "add", "--", f.Path); err != nil {
+				return false, nil, err
+			}
+		}
+		if len(kept) == 0 {
+			return false, nil, nil
+		}
+	} else if _, err := git(r.Path, "add", "-A"); err != nil {
 		return false, nil, err
 	}
+	files = kept
 	msg := strings.NewReplacer(
 		"{host}", hostname(),
 		"{time}", time.Now().Format("2006-01-02 15:04"),
@@ -528,4 +544,50 @@ func (e *Engine) RunAll(repos []*Repo, op func(*Repo) Result) []Result {
 		out = append(out, res)
 	}
 	return out
+}
+
+// splitHeldBack separates the files an automatic commit may take from the
+// ones the repository asked it to leave alone.
+func splitHeldBack(files []FileChange, patterns []string) (take, hold []FileChange) {
+	if len(patterns) == 0 {
+		return files, nil
+	}
+	for _, f := range files {
+		if matchesAny(f.Path, patterns) {
+			hold = append(hold, f)
+			continue
+		}
+		take = append(take, f)
+	}
+	return take, hold
+}
+
+func matchesAny(path string, patterns []string) bool {
+	path = filepath.ToSlash(path)
+	for _, p := range patterns {
+		p = filepath.ToSlash(p)
+		if ok, _ := filepath.Match(p, path); ok {
+			return true
+		}
+		if ok, _ := filepath.Match(p, filepath.Base(path)); ok {
+			return true
+		}
+		// "logs/**" should cover everything under logs/
+		if strings.HasSuffix(p, "/**") && strings.HasPrefix(path, strings.TrimSuffix(p, "**")) {
+			return true
+		}
+	}
+	return false
+}
+
+// WouldCommit and WouldHoldBack answer a dry run: what an automatic commit
+// would take, and what it would step over.
+func WouldCommit(r *Repo) []FileChange {
+	take, _ := splitHeldBack(ChangedFilesDetailed(r.Path), r.NoCommit)
+	return take
+}
+
+func WouldHoldBack(r *Repo) []FileChange {
+	_, hold := splitHeldBack(ChangedFilesDetailed(r.Path), r.NoCommit)
+	return hold
 }

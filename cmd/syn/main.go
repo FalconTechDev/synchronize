@@ -37,8 +37,12 @@ REPOSITORIES
   init [path]            register the repo at path (default: current directory)
   repo add <owner/repo> [--path ./dir] [--branch main] [--interval 5]
                          clone from GitHub and register (works with private repos)
+  repo add <url>         any other git remote - GitLab, a company server -
+                         where git handles the credentials as it always does
   repo ls                list your GitHub repos (requires auth)
   ls  (or list)          show registered repositories
+  path <repo>            print its folder and nothing else, for cd $(syn path x)
+  ignore <repo> <glob>   keep files out of automatic commits (they stay on disk)
   remove <repo>          stop tracking a repository (files untouched)
   enable <repo>          same as auto <repo> on
   disable <repo>         same as auto <repo> off
@@ -65,6 +69,11 @@ SYNCING
   push  <repo|all> [--force]  commit + publish local work (--force: force-with-lease)
   sync  <repo|all>            pull, then push
   status <repo|all> [--fetch] show what would happen
+  status ... --json           the same, for a script to read
+  status ... --porcelain      one tab-separated line per repository
+  undo <repo>                 take back syn's last commit, keeping the changes
+
+  Add --dry-run to pull, push or sync to see what they would do first.
 
   watch <repo|all>            sync on a timer; publishes before the machine
                               shuts down and holds shutdown until it has
@@ -99,6 +108,7 @@ AUTOMATIC SYNCING  (three separate switches)
                          the shutdown until that has finished
   auto on|off            all three at once
   auto <repo> on|off     leave one repository out, or bring it back
+  pause <repo> 2h        the same, but only for a while (off to end it early)
   start                  run the watcher now without waiting for login
 
 OTHER
@@ -349,8 +359,8 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		return nil
 
 	case "send", "receive", "encrypt", "tmp":
-		fmt.Printf("syn %s is coming soon — not available yet\n", cmd)
-		return nil
+		// A script has to be able to tell this from success.
+		return fmt.Errorf("%s is not finished yet - see the readme for what works today", cmd)
 
 	case "shell", "sh", "i":
 		return cmdShell()
@@ -374,14 +384,14 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		return cmdFiles(cfg, rest)
 
 	case "pull":
-		return runOp(engine, cfg, selector, pick(has("--force"), engine.ForcePull, engine.Pull))
+		return runOp(engine, cfg, selector, has, pick(has("--force"), engine.ForcePull, engine.Pull))
 	case "push":
-		return runOp(engine, cfg, selector, pick(has("--force"), engine.ForcePush, engine.Push))
+		return runOp(engine, cfg, selector, has, pick(has("--force"), engine.ForcePush, engine.Push))
 	case "sync":
-		return runOp(engine, cfg, selector, engine.Sync)
+		return runOp(engine, cfg, selector, has, engine.Sync)
 
 	case "status":
-		return cmdStatus(engine, cfg, selector, has("--fetch"))
+		return cmdStatus(engine, cfg, selector, has)
 	case "watch":
 		repos, err := cfg.Selected(selector)
 		if err != nil {
@@ -443,6 +453,15 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		}
 		return cmdPrune(engine, cfg, selector, days)
 
+	case "path":
+		return cmdPath(cfg, arg(0))
+	case "undo":
+		return cmdUndo(engine, cfg, arg(0), has("--force"))
+	case "pause":
+		return cmdPause(cfg, rest)
+	case "ignore":
+		return cmdIgnore(cfg, rest)
+
 	case "auto", "autostart", "install", "uninstall":
 		return cmdAuto(cfg, cmd, rest)
 	case "start":
@@ -463,22 +482,36 @@ func pick(force bool, a, b func(*syn.Repo) syn.Result) func(*syn.Repo) syn.Resul
 	return b
 }
 
-func runOp(e *syn.Engine, cfg *syn.Config, selector string, op func(*syn.Repo) syn.Result) error {
+func runOp(e *syn.Engine, cfg *syn.Config, selector string, has func(string) bool, op func(*syn.Repo) syn.Result) error {
 	repos, err := cfg.Selected(selector)
 	if err != nil {
 		return err
 	}
+
+	if has("--dry-run") {
+		return dryRun(e, repos)
+	}
+
 	results := e.RunAll(repos, op)
+	if has("--json") {
+		if err := printJSON(opReports(results)); err != nil {
+			return err
+		}
+	}
+
 	failed := 0
 	for _, r := range results {
 		if !r.OK() {
 			failed++
 		}
 	}
-	if failed > 0 {
-		return fmt.Errorf("%d of %d repositor(ies) need attention - see `syn status`", failed, len(results))
+	if failed == 0 {
+		return nil
 	}
-	return nil
+	if failed == 1 {
+		return fmt.Errorf("1 repository needs attention - see `syn status`")
+	}
+	return fmt.Errorf("%d repositories need attention - see `syn status`", failed)
 }
 
 func cmdInit(cfg *syn.Config, path string) error {
@@ -732,12 +765,20 @@ func cmdRepo(cfg *syn.Config, creds *syn.Credentials, engine *syn.Engine, rest [
 		if len(rest) < 2 {
 			return fmt.Errorf("usage: syn repo add <owner/repo> [--path ./dir] [--branch main] [--interval 5]")
 		}
-		slug := rest[1]
-		parts := strings.SplitN(slug, "/", 2)
-		if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-			return fmt.Errorf("repository must be owner/repo (e.g. torvalds/linux)")
+		target := rest[1]
+
+		// A full URL means GitLab, a company server, or anything else with a
+		// git endpoint. syn syncs git; it should not insist on GitHub.
+		if looksLikeURL(target) {
+			return cmdRepoAddURL(cfg, target, values)
 		}
-		return cmdRepoAdd(cfg, creds, slug, values, has("--force"))
+
+		parts := strings.SplitN(target, "/", 2)
+		if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+			return fmt.Errorf("give owner/repo for GitHub (torvalds/linux),\n" +
+				"        or a full URL for anywhere else (https://gitlab.com/group/thing.git)")
+		}
+		return cmdRepoAdd(cfg, creds, target, values, has("--force"))
 
 	case "ls", "list":
 		return cmdRepoList(creds)
@@ -1180,10 +1221,19 @@ func removePattern(slice []string, s string) []string {
 	return out
 }
 
-func cmdStatus(e *syn.Engine, cfg *syn.Config, selector string, fetch bool) error {
+func cmdStatus(e *syn.Engine, cfg *syn.Config, selector string, has func(string) bool) error {
 	repos, err := cfg.Selected(selector)
 	if err != nil {
 		return err
+	}
+	fetch := has("--fetch")
+
+	if has("--json") {
+		return printJSON(statusRows(e, repos, fetch))
+	}
+	if has("--porcelain") {
+		printPorcelain(statusRows(e, repos, fetch))
+		return nil
 	}
 	for _, r := range repos {
 		fmt.Print(e.Status(r, fetch).String())

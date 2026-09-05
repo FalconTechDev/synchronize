@@ -97,6 +97,7 @@ the permissions granted explicitly per repository.
 syn repo add owner/name                 # clone it and track it
 syn repo add owner/name --path ./dir    # into a folder you choose
 syn repo add owner/name --branch dev    # a second copy on another branch
+syn repo add https://gitlab.com/g/t.git # any git remote, not only GitHub
 syn repo create my-project [--public]   # make it on GitHub, then clone
 syn repo ls                             # what you have on GitHub
 syn ls                                  # what syn is tracking
@@ -112,8 +113,23 @@ syn sync <repo|all>              # pull, then push
 syn status <repo|all> [--fetch]
 syn diff <repo|all>              # what is not committed yet
 syn diff <repo> --pushed         # what this branch has that the remote lacks
+syn undo <repo>                  # take back syn's last commit, keep the changes
 syn log [n] [--live]
 ```
+
+Add `--dry-run` to `pull`, `push` or `sync` to see what they would do without
+doing it — for a command that commits on your behalf, worth having.
+
+### For scripts
+
+```bash
+syn status all --json        # one object per repository
+syn status all --porcelain   # name, state, ahead, behind, changed, branch, path
+syn path my-repo             # just the folder, so cd $(syn path my-repo) works
+```
+
+Anything that fails exits non-zero, including a feature that is not finished
+yet, so a script can tell the difference.
 
 Both directions list the files behind the commits, so an automatic commit
 never happens without telling you what went into it. `diff` counts untracked
@@ -131,7 +147,12 @@ syn auto watch 30m           # same, and how often (30m, 12h, 1d)
 syn auto shutdown on|off     # publish before the machine goes down
 syn auto on|off              # all three
 syn auto <repo> on|off       # leave one repository out of it
+syn pause <repo> 2h          # the same, but only for a while
+syn pause <repo> off         # end the pause early
 ```
+
+Pausing only affects automatic syncing. Commands you type yourself always
+reach the repository, so work is never stranded.
 
 It uses the OS scheduler, so it survives a reboot without syn running.
 
@@ -172,6 +193,15 @@ syn files <repo>                        # what is being synced
 syn files include <repo> "src/**"       # only what matches
 syn files exclude <repo> "logs/**"      # everything except
 syn files clear <repo>                  # the whole thing again
+```
+
+`files` decides what is checked out. To keep something on disk but out of the
+automatic commits — a local `.env`, say — use `ignore`:
+
+```bash
+syn ignore my-repo "*.env"
+syn ignore my-repo          # what is being held back
+syn ignore my-repo clear
 ```
 
 This is git sparse-checkout: what you leave out is removed from your folder
