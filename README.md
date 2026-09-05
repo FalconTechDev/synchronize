@@ -11,8 +11,10 @@ syn status all           # what would a sync do right now
 syn sync my-repo         # do it now
 ```
 
-The history stays ordinary git. Open the repository in GitHub, VS Code or any
-git client and nothing about it will look unusual.
+The history stays ordinary git — open the repository in GitHub, VS Code or any
+git client and the commits look like commits. It does push safety branches
+under `syn/backup/` before rewriting anything, so the branch list is busier
+than a hand-tended repository; `syn prune` clears the old ones.
 
 ---
 
@@ -21,8 +23,8 @@ git client and nothing about it will look unusual.
 - **At login** — brings in what changed while you were away
 - **On a timer** — keeps up while you work, every 10 minutes by default
 - **At shutdown** — commits and publishes, and holds the shutdown until it has
-- **On conflict** — takes a backup branch, tells you, and leaves your working
-  tree clean so you can carry on
+- **On conflict** — takes a backup branch, stops syncing that repository and
+  tells you, rather than merging something half-decided
 - **Hooks** — runs a command of yours after a sync actually changed something
 
 Each of those is a separate switch. None of them is forced on you.
@@ -73,8 +75,9 @@ you build locally is what ships.
 ## Commands
 
 Anything that touches a repository needs it named. Pass `all` to mean every
-enabled one — a bare `syn push` will not quietly publish work from a repository
-you were not thinking about.
+repository you track — a bare `syn push` will not quietly publish work from
+one you were not thinking about. Pausing a repository only keeps it out of
+automatic syncing; commands you type yourself still reach it.
 
 ### Signing in
 
@@ -107,12 +110,14 @@ syn pull <repo|all> [--force]    # bring changes in (--force resets to remote)
 syn push <repo|all> [--force]    # commit your work and publish it
 syn sync <repo|all>              # pull, then push
 syn status <repo|all> [--fetch]
-syn diff <repo|all>
+syn diff <repo|all>              # what is not committed yet
+syn diff <repo> --pushed         # what this branch has that the remote lacks
 syn log [n] [--live]
 ```
 
 Both directions list the files behind the commits, so an automatic commit
-never happens without telling you what went into it.
+never happens without telling you what went into it. `diff` counts untracked
+files too, because an automatic commit sweeps those in as well.
 
 ### Syncing by itself
 
@@ -248,14 +253,15 @@ syn set my-repo name shorter-name
 2. A **backup branch** `syn/backup/<host>/<branch>/<timestamp>` is taken, so
    your work is safe before anything is rewritten
 3. A **notification** tells you which repository needs you
-4. Your working tree is left clean, so you can keep working meanwhile
+4. Nothing is half-merged: the branch is where it was, and syncing stops for
+   that repository until you say what to do
 
 Then, when you are ready:
 
 ```bash
-syn resolve my-repo      # replays it, leaving conflict markers in the files
-# fix the markers
-syn resolve my-repo      # finishes and syncs
+syn resolve my-repo      # replays it, putting conflict markers in the files
+# edit the files: keep what you want, delete the <<<<<<< ======= >>>>>>> lines
+syn resolve my-repo      # sees the markers are gone, finishes and syncs
 ```
 
 ---
