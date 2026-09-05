@@ -76,7 +76,7 @@ func writeVar(name, path string) string {
 func TestAfterPullHookSeesTheEvent(t *testing.T) {
 	env := newTestEnv(t)
 	out := filepath.Join(env.dir, "event.txt")
-	env.b.Hooks.AfterPull = []string{writeVar("SYN_EVENT", out)}
+	env.b.Hooks.AfterPull = HookList{{Run: writeVar("SYN_EVENT", out)}}
 
 	env.write(env.a, "file.txt", "base\nfrom a\n")
 	if res := env.engine.Push(env.a); !res.OK() {
@@ -98,7 +98,7 @@ func TestAfterPullHookSeesTheEvent(t *testing.T) {
 func TestAfterPushHookCountsTheCommittedFiles(t *testing.T) {
 	env := newTestEnv(t)
 	out := filepath.Join(env.dir, "count.txt")
-	env.a.Hooks.AfterPush = []string{writeVar("SYN_CHANGED_COUNT", out)}
+	env.a.Hooks.AfterPush = HookList{{Run: writeVar("SYN_CHANGED_COUNT", out)}}
 
 	env.write(env.a, "file.txt", "base\nedited\n")
 	env.write(env.a, "extra.txt", "new\n")

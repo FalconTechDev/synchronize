@@ -46,8 +46,10 @@ REPOSITORIES
   remove <repo>          stop tracking a repository (files untouched)
   enable <repo>          same as auto <repo> on
   disable <repo>         same as auto <repo> off
-  set <repo> <k> <v>     change name, remote, branch, interval
+  set <repo> <k> <v>     change name, remote, branch, interval, require_checks
                          interval takes minutes or a duration: 30m, 12h, 1d
+                         require_checks on: never pull a commit whose GitHub
+                         checks are red or still running (--no-checks overrides)
 
 PART OF A REPOSITORY  (by default the whole thing is synced)
   files <repo>                  show which paths are being synced
@@ -66,6 +68,8 @@ WAYS TO LOOK AT IT
 
 SYNCING
   pull  <repo|all> [--force]  bring remote changes in  (--force: reset to remote)
+  pull  <repo> --to <ref>     go to a particular commit, tag or branch, and
+                              nowhere else - how a deploy is pinned or rolled back
   push  <repo|all> [--force]  commit + publish local work (--force: force-with-lease)
   sync  <repo|all>            pull, then push
   status <repo|all> [--fetch] show what would happen
@@ -81,9 +85,16 @@ SYNCING
 HOOKS  (run a command on THIS machine after a sync changed something)
   hook ls                          show configured hooks
   hook add <repo> <event> <cmd>    event: after-pull, after-push, on-conflict
+  hook add <repo> <event> --paths "src/**,go.mod" <cmd>
+                                   only when one of those files changed
   hook run <repo> <event>          try it now without syncing
   hook clear <repo> [event]        remove hooks
   hook timeout <repo> <seconds>    how long a hook may run (default 300)
+  hook rollback <repo> on|off      put a pull back if its after-pull hook fails
+
+  A hook is told what happened: SYN_EVENT, SYN_REPO, SYN_PATH, SYN_BRANCH,
+  SYN_COMMIT, SYN_PREV_COMMIT, SYN_CHANGED_FILES (one path per line) and
+  SYN_CHANGED_COUNT.
 
   Hooks live in ~/.synchronize/config.json and never travel through git,
   so a command can only come from this machine.
@@ -115,8 +126,8 @@ OTHER
   config                 print the current configuration
   config set <k> <v>     backup, push_backup, strategy, interval_minutes,
                          notify, commit_template, keep_backup_days
-  log [n]                last n log lines (default 40)
-  log --live             stream the log in real time
+  log [repo] [n]         last n log lines, all of them or one repository's
+  log [repo] --live      stream the log in real time
   diff <repo|all>        what is not committed yet, untracked files included
   diff <repo> --pushed   what this branch has that the remote does not
   doctor                 check that everything is wired up
@@ -162,6 +173,8 @@ func run(args []string) error {
 		"--desc":     true,
 		"--dest":     true,
 		"--addr":     true,
+		"--to":       true,
+		"--paths":    true,
 	}
 
 	var flags []string
@@ -285,6 +298,7 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		return err
 	}
 	engine := syn.NewEngine(cfg)
+	engine.SkipChecks = has("--no-checks")
 	syn.FallbackIdentity = cfg.Identity
 
 	creds := syn.LoadCredentials()
@@ -305,22 +319,37 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 	case "repo":
 		return cmdRepo(cfg, creds, engine, rest, has, values)
 	case "log":
-		if has("--live") || has("-f") {
-			stop := make(chan struct{})
-			fmt.Println("streaming log (Ctrl+C to stop)...")
-			return syn.LiveTail(os.Stdout, stop)
-		}
-		n := 40
+		// The arguments are "how many" and "about what", in either order,
+		// both optional: syn log, syn log 100, syn log my-repo, syn log
+		// my-repo 100.
+		n, repo := 40, ""
 		if v := values["--lines"]; v != "" {
 			fmt.Sscanf(v, "%d", &n)
-		} else if arg(0) != "" {
-			if parsed, err := strconv.Atoi(arg(0)); err == nil && parsed > 0 {
-				n = parsed
-			} else {
-				return fmt.Errorf("log takes a number of lines, not %q", arg(0))
-			}
 		}
-		fmt.Println(syn.TailLog(n))
+		for _, a := range rest {
+			if strings.HasPrefix(a, "-") {
+				continue
+			}
+			if parsed, err := strconv.Atoi(a); err == nil && parsed > 0 {
+				n = parsed
+				continue
+			}
+			if cfg.Find(a) == nil {
+				return fmt.Errorf("log takes a number of lines or a repository, and %q is neither\n%s",
+					a, repoListHint(cfg))
+			}
+			repo = cfg.Find(a).Name
+		}
+		if has("--live") || has("-f") {
+			stop := make(chan struct{})
+			what := "log"
+			if repo != "" {
+				what = repo + " log"
+			}
+			fmt.Printf("streaming %s (Ctrl+C to stop)...\n", what)
+			return syn.LiveTailFor(os.Stdout, repo, stop)
+		}
+		fmt.Println(syn.TailLogFor(repo, n))
 		return nil
 
 	case "diff":
@@ -367,7 +396,7 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		return cmdShell()
 
 	case "hook", "hooks":
-		return cmdHook(cfg, engine, rest)
+		return cmdHook(cfg, engine, rest, values["--paths"])
 
 	case "serve":
 		addr := values["--addr"]
@@ -385,6 +414,12 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		return cmdFiles(cfg, rest)
 
 	case "pull":
+		if to := values["--to"]; to != "" {
+			if has("--force") {
+				return fmt.Errorf("--to already resets hard; --force adds nothing")
+			}
+			return runOp(engine, cfg, selector, has, engine.PullTo(to))
+		}
 		return runOp(engine, cfg, selector, has, pick(has("--force"), engine.ForcePull, engine.Pull))
 	case "push":
 		return runOp(engine, cfg, selector, has, pick(has("--force"), engine.ForcePush, engine.Push))
@@ -668,8 +703,17 @@ func cmdSet(cfg *syn.Config, key, field, value string) error {
 			return fmt.Errorf("interval must be minutes, or a duration like 30m, 12h, 1d (0 = use the global setting)")
 		}
 		r.IntervalMinutes = n
+	case "require_checks", "require-checks":
+		switch value {
+		case "on", "true", "yes":
+			r.RequireStatusCheck = true
+		case "off", "false", "no":
+			r.RequireStatusCheck = false
+		default:
+			return fmt.Errorf("require_checks is on or off, not %q", value)
+		}
 	default:
-		return fmt.Errorf("cannot set %q - use name, remote, branch or interval", field)
+		return fmt.Errorf("cannot set %q - use name, remote, branch, interval or require_checks", field)
 	}
 	if err := cfg.Save(); err != nil {
 		return err
@@ -964,7 +1008,7 @@ func cmdRepoList(creds *syn.Credentials) error {
 	return nil
 }
 
-func cmdHook(cfg *syn.Config, e *syn.Engine, rest []string) error {
+func cmdHook(cfg *syn.Config, e *syn.Engine, rest []string, paths string) error {
 	if len(rest) == 0 || rest[0] == "ls" || rest[0] == "list" {
 		return listHooks(cfg)
 	}
@@ -978,21 +1022,24 @@ func cmdHook(cfg *syn.Config, e *syn.Engine, rest []string) error {
 		if r == nil {
 			return fmt.Errorf("unknown repository %q", rest[1])
 		}
+		paths := splitPaths(paths)
 		command := strings.Join(rest[3:], " ")
-		switch rest[2] {
-		case "after-pull":
-			r.Hooks.AfterPull = append(r.Hooks.AfterPull, command)
-		case "after-push":
-			r.Hooks.AfterPush = append(r.Hooks.AfterPush, command)
-		case "on-conflict":
-			r.Hooks.OnConflict = append(r.Hooks.OnConflict, command)
-		default:
+		if command == "" {
+			return fmt.Errorf("hook add needs a command to run")
+		}
+		list, ok := r.Hooks.For(rest[2])
+		if !ok {
 			return fmt.Errorf("event must be after-pull, after-push or on-conflict")
 		}
+		r.Hooks.Set(rest[2], append(list, syn.Hook{Run: command, Paths: paths}))
 		if err := cfg.Save(); err != nil {
 			return err
 		}
-		syn.Info("%s: %s hook added", r.Name, rest[2])
+		if len(paths) > 0 {
+			syn.Info("%s: %s hook added, only for %s", r.Name, rest[2], strings.Join(paths, ", "))
+		} else {
+			syn.Info("%s: %s hook added", r.Name, rest[2])
+		}
 		return nil
 
 	case "clear":
@@ -1025,6 +1072,32 @@ func cmdHook(cfg *syn.Config, e *syn.Engine, rest []string) error {
 		syn.Info("%s: hooks cleared", r.Name)
 		return nil
 
+	case "rollback":
+		if len(rest) < 3 {
+			return fmt.Errorf("usage: syn hook rollback <repo> on|off")
+		}
+		r := cfg.Find(rest[1])
+		if r == nil {
+			return fmt.Errorf("unknown repository %q", rest[1])
+		}
+		switch rest[2] {
+		case "on", "true", "yes":
+			r.Hooks.Rollback = true
+		case "off", "false", "no":
+			r.Hooks.Rollback = false
+		default:
+			return fmt.Errorf("rollback is on or off, not %q", rest[2])
+		}
+		if err := cfg.Save(); err != nil {
+			return err
+		}
+		if r.Hooks.Rollback {
+			syn.Info("%s: a failing after-pull hook will put the repository back", r.Name)
+		} else {
+			syn.Info("%s: a failing after-pull hook leaves the pull in place", r.Name)
+		}
+		return nil
+
 	case "timeout":
 		if len(rest) < 3 {
 			return fmt.Errorf("usage: syn hook timeout <repo> <seconds>")
@@ -1054,7 +1127,7 @@ func cmdHook(cfg *syn.Config, e *syn.Engine, rest []string) error {
 		}
 		return e.RunHooksNow(r, rest[2])
 	}
-	return fmt.Errorf("unknown hook subcommand %q (try: add, ls, clear, timeout, run)", rest[0])
+	return fmt.Errorf("unknown hook subcommand %q (try: add, ls, clear, timeout, rollback, run)", rest[0])
 }
 
 func listHooks(cfg *syn.Config) error {
@@ -1065,10 +1138,17 @@ func listHooks(cfg *syn.Config) error {
 			continue
 		}
 		any = true
-		fmt.Printf("%s  (timeout %ds)\n", r.Name, r.Hooks.Timeout())
-		show := func(label string, cmds []string) {
-			for _, c := range cmds {
-				fmt.Printf("  %-12s %s\n", label, c)
+		rollback := ""
+		if r.Hooks.Rollback {
+			rollback = ", rolls back a pull if the hook fails"
+		}
+		fmt.Printf("%s  (timeout %ds%s)\n", r.Name, r.Hooks.Timeout(), rollback)
+		show := func(label string, hooks syn.HookList) {
+			for _, h := range hooks {
+				fmt.Printf("  %-12s %s\n", label, h.Run)
+				if len(h.Paths) > 0 {
+					fmt.Printf("  %-12s   only when these change: %s\n", "", strings.Join(h.Paths, ", "))
+				}
 			}
 		}
 		show("after-pull", r.Hooks.AfterPull)

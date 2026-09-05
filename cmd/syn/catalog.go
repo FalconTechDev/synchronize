@@ -13,7 +13,7 @@ type cmdInfo struct {
 
 var catalog = map[string]cmdInfo{
 	// Syncing
-	"pull":   {"<repo|all> [--force] [--dry-run]", "bring remote changes in (--force resets to the remote)", "Syncing"},
+	"pull":   {"<repo|all> [--force] [--to <ref>] [--dry-run]", "bring remote changes in (--force resets to the remote; --to pins it to one ref)", "Syncing"},
 	"push":   {"<repo|all> [--force] [--dry-run]", "commit local work and publish it", "Syncing"},
 	"sync":   {"<repo|all> [--dry-run]", "pull, then push", "Syncing"},
 	"undo":   {"<repo> [--force] [--yes]", "take back syn's last commit, keeping the changes", "Syncing"},
@@ -26,11 +26,11 @@ var catalog = map[string]cmdInfo{
 	"init":   {"[path]", "track the git repo at path (default: here)", "Repositories"},
 	"repo":   {"<add|ls>", "clone from GitHub, or list what is there", "Repositories"},
 	"remove": {"<repo>", "stop tracking it; the files stay put", "Repositories"},
-	"set":    {"<repo> <name|remote|branch|interval> <value>", "change a repository setting", "Repositories"},
+	"set":    {"<repo> <name|remote|branch|interval|require_checks> <value>", "change a repository setting", "Repositories"},
 	"files":  {"<include|exclude|clear> <repo> <glob>", "sync only part of a repository", "Repositories"},
 
 	// Hooks
-	"hook": {"<ls|add|run|clear|timeout>", "run a command after a sync changes something", "Hooks"},
+	"hook": {"<ls|add|run|clear|timeout|rollback>", "run a command after a sync changes something", "Hooks"},
 
 	// Conflicts
 	"resolve": {"<repo> [--ours|--theirs|--abort]", "deal with a conflict", "Conflicts and safety"},
@@ -56,7 +56,7 @@ var catalog = map[string]cmdInfo{
 	"shell":   {"", "a session that stays open until you type exit", "This session"},
 	"enable":  {"<repo>", "same as auto <repo> on", "This session"},
 	"disable": {"<repo>", "same as auto <repo> off", "This session"},
-	"log":     {"[n] [--live]", "recent log lines, or follow them live", "This session"},
+	"log":     {"[repo] [n] [--live]", "recent log lines, all or for one repo; --live follows", "This session"},
 	"clear":   {"", "clear the screen", "This session"},
 	"exit":    {"", "leave the shell", "This session"},
 	"version": {"", "print the version", "This session"},
@@ -71,10 +71,11 @@ var subHints = map[string]cmdInfo{
 	"auth status":   {"", "show who is signed in", ""},
 	"auth setup":    {"<github oauth client id>", "use your own OAuth app", ""},
 	"hook ls":       {"", "show the hooks on every repository", ""},
-	"hook add":      {"<repo> <after-pull|after-push|on-conflict> <command>", "run a command after a sync", ""},
+	"hook add":      {"<repo> <after-pull|after-push|on-conflict> [--paths \"src/**\"] <command>", "run a command after a sync", ""},
 	"hook run":      {"<repo> <after-pull|after-push|on-conflict>", "try a hook without syncing", ""},
 	"hook clear":    {"<repo> [event]", "remove hooks", ""},
 	"hook timeout":  {"<repo> <seconds>", "how long a hook may run", ""},
+	"hook rollback": {"<repo> on|off", "undo a pull whose after-pull hook failed", ""},
 	"files include": {"<repo> <glob>", "keep only what matches, e.g. src/** or notes.md", ""},
 	"files exclude": {"<repo> <glob>", "keep everything except, e.g. logs/** or *.mp4", ""},
 	"files clear":   {"<repo>", "go back to syncing everything", ""},

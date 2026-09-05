@@ -373,3 +373,92 @@ func (e *Engine) dropAutoStash(r *Repo) {
 		return
 	}
 }
+
+// PullTo moves the repository onto a particular commit or tag instead of
+// whatever the remote's branch tip happens to be. This is what makes a
+// deploy repeatable: the same ref on every machine, and a way back to the
+// release that worked when the newest one does not.
+//
+// Like a force pull it resets hard, so local work is committed first and a
+// backup branch taken before anything moves.
+func (e *Engine) PullTo(ref string) func(*Repo) Result {
+	return func(r *Repo) Result {
+		return e.withHooks(r, "pull", func(r *Repo) Result { return e.pullTo(r, ref) })
+	}
+}
+
+func (e *Engine) pullTo(r *Repo, ref string) Result {
+	res := Result{Repo: r.Name, Remote: r.Remote, Path: r.Path, MovedTo: ref}
+	branch, err := e.prepare(r)
+	if err != nil {
+		res.Err = err
+		return res
+	}
+	res.Branch = branch
+
+	// Fetch tags too: pinning a deploy to v1.4.2 is the common case, and a
+	// plain fetch would not bring the tag down.
+	if _, err := gitWithToken(r.Path, e.tokenFor(r), "fetch", "--prune", "--tags", r.Remote); err != nil {
+		res.Err = err
+		return res
+	}
+
+	target, err := resolveRef(r, ref)
+	if err != nil {
+		res.Err = err
+		return res
+	}
+	if err := e.checkGate(r, target); err != nil {
+		res.Err = err
+		return res
+	}
+
+	before, _ := CurrentCommit(r.Path)
+	if before == target {
+		Info("%s: already on %s (%s)", r.Name, ref, short(target))
+		e.markSynced(r)
+		return res
+	}
+
+	if committed, _, err := e.autoCommit(r); err != nil {
+		res.Err = err
+		return res
+	} else {
+		res.Committed = committed
+	}
+	res.Backup = e.backup(r, branch)
+
+	if _, err := git(r.Path, "reset", "--hard", target); err != nil {
+		res.Err = err
+		return res
+	}
+	res.PulledFiles = FilesBetween(r.Path, before, target)
+	res.PulledLog = CommitLog(r.Path, before, target, 5)
+	// Moving to an older ref is a rollback, not a pull of new work; either
+	// way something arrived, and the count is what the hooks gate on.
+	if n := len(res.PulledFiles); n > 0 {
+		res.Pulled = 1
+	}
+	e.clearConflict(r.Name)
+	e.markSynced(r)
+	Info("%s: now on %s (%s), was %s", r.Name, ref, short(target), short(before))
+	if res.Backup != "" {
+		Info("%s: the previous state is on %s", r.Name, res.Backup)
+	}
+	return res
+}
+
+// resolveRef turns what the user typed into a commit. A bare branch name is
+// tried against the remote first, because "syn pull --to main" means the
+// remote's main, not this machine's copy of it.
+func resolveRef(r *Repo, ref string) (string, error) {
+	for _, candidate := range []string{r.Remote + "/" + ref, ref} {
+		out, err := git(r.Path, "rev-parse", "--verify", "--quiet", candidate+"^{commit}")
+		if err == nil && out != "" {
+			return strings.TrimSpace(out), nil
+		}
+	}
+	return "", fmt.Errorf("%q is not a commit, tag or branch this repository knows about\n"+
+		"        it has to exist on the remote or here already; check the spelling,\n"+
+		"        or see what there is:  git -C %s log --oneline -20", ref, r.Path)
+}

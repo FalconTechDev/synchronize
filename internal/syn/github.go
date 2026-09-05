@@ -21,6 +21,11 @@ const (
 type GitHub struct {
 	Token  string
 	Client *http.Client
+
+	// Base is where the API lives. It is only ever anything other than
+	// GitHub's own address in tests, which stand a server up locally rather
+	// than reach across the network to assert on someone else's CI.
+	Base string
 }
 
 func NewGitHub(token string) *GitHub {
@@ -29,7 +34,11 @@ func NewGitHub(token string) *GitHub {
 
 func (g *GitHub) do(method, path string, body io.Reader) (*http.Response, error) {
 	if !strings.HasPrefix(path, "https://") {
-		path = "https://api.github.com" + path
+		base := g.Base
+		if base == "" {
+			base = "https://api.github.com"
+		}
+		path = base + path
 	}
 	req, err := http.NewRequest(method, path, body)
 	if err != nil {

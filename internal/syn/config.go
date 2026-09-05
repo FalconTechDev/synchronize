@@ -35,7 +35,8 @@ type Repo struct {
 
 	// NoCommit are paths an automatic commit steps over. The file rules say
 	// what is checked out; this says what syn will not commit for you.
-	NoCommit []string `json:"no_commit,omitempty"`
+	RequireStatusCheck bool     `json:"require_status_check,omitempty"`
+	NoCommit           []string `json:"no_commit,omitempty"`
 }
 
 // SyncsByItself reports whether automatic syncing should touch this one.
@@ -47,10 +48,43 @@ func (r *Repo) SyncsByItself() bool {
 }
 
 type Hooks struct {
-	AfterPull      []string `json:"after_pull,omitempty"`
-	AfterPush      []string `json:"after_push,omitempty"`
-	OnConflict     []string `json:"on_conflict,omitempty"`
+	AfterPull      HookList `json:"after_pull,omitempty"`
+	AfterPush      HookList `json:"after_push,omitempty"`
+	OnConflict     HookList `json:"on_conflict,omitempty"`
 	TimeoutSeconds int      `json:"timeout_seconds,omitempty"`
+
+	// Rollback puts an after-pull back where it started if the hook fails.
+	// Off by default: undoing a pull is a real loss of work if the hook was
+	// merely flaky, so it has to be asked for.
+	Rollback bool `json:"rollback_on_failure,omitempty"`
+}
+
+// For returns the hooks configured for an event, and whether the name was one.
+func (h *Hooks) For(event string) (HookList, bool) {
+	switch event {
+	case "after-pull", "after_pull":
+		return h.AfterPull, true
+	case "after-push", "after_push":
+		return h.AfterPush, true
+	case "on-conflict", "on_conflict":
+		return h.OnConflict, true
+	}
+	return nil, false
+}
+
+// Set replaces the hooks for an event.
+func (h *Hooks) Set(event string, list HookList) bool {
+	switch event {
+	case "after-pull", "after_pull":
+		h.AfterPull = list
+	case "after-push", "after_push":
+		h.AfterPush = list
+	case "on-conflict", "on_conflict":
+		h.OnConflict = list
+	default:
+		return false
+	}
+	return true
 }
 
 func (h Hooks) Timeout() int {

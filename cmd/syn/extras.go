@@ -323,3 +323,16 @@ func cmdRepoAddURL(cfg *syn.Config, url string, values map[string]string) error 
 	syn.Info("git handles the credentials for this remote, as it would for any clone")
 	return nil
 }
+
+// splitPaths turns the --paths value into the list of globs a hook cares
+// about. Empty entries are dropped, so a trailing comma is not a pattern
+// that matches nothing.
+func splitPaths(value string) []string {
+	var paths []string
+	for _, p := range strings.Split(value, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			paths = append(paths, p)
+		}
+	}
+	return paths
+}

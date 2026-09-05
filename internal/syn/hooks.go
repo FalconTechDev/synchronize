@@ -29,17 +29,32 @@ type hookInfo struct {
 	Changed []string
 }
 
-func (e *Engine) runHooks(r *Repo, info hookInfo, commands []string) []HookRun {
+func (e *Engine) runHooks(r *Repo, info hookInfo, hooks HookList) []HookRun {
 	event := info.Event
-	if len(commands) == 0 {
+	if len(hooks) == 0 {
 		return nil
 	}
 
-	Info("%s: running %d %s hook(s)", r.Name, len(commands), event)
+	// A hook that named paths sits out a sync that did not touch them.
+	wanted := make(HookList, 0, len(hooks))
+	for _, h := range hooks {
+		if h.Wants(info.Changed) {
+			wanted = append(wanted, h)
+			continue
+		}
+		Debug("%s: %s hook skipped, nothing under %s changed: %s",
+			r.Name, event, strings.Join(h.Paths, ", "), h.Run)
+	}
+	if len(wanted) == 0 {
+		return nil
+	}
+
+	Info("%s: running %d %s hook(s)", r.Name, len(wanted), event)
 	timeout := time.Duration(r.Hooks.Timeout()) * time.Second
 
 	var runs []HookRun
-	for _, cmd := range commands {
+	for _, h := range wanted {
+		cmd := h.Run
 		run := e.runHook(r, info, cmd, timeout)
 		runs = append(runs, run)
 
@@ -124,15 +139,8 @@ func tailLines(s string, max int) []string {
 }
 
 func (e *Engine) RunHooksNow(r *Repo, event string) error {
-	var cmds []string
-	switch event {
-	case "after-pull", "after_pull":
-		cmds = r.Hooks.AfterPull
-	case "after-push", "after_push":
-		cmds = r.Hooks.AfterPush
-	case "on-conflict", "on_conflict":
-		cmds = r.Hooks.OnConflict
-	default:
+	cmds, ok := r.Hooks.For(event)
+	if !ok {
 		return fmt.Errorf("event must be after-pull, after-push or on-conflict")
 	}
 	if len(cmds) == 0 {

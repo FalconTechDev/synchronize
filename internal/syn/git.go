@@ -437,3 +437,12 @@ func FilesBetween(dir, from, to string) []FileChange {
 func CurrentCommit(dir string) (string, error) {
 	return git(dir, "rev-parse", "HEAD")
 }
+
+// RevParse turns any ref into the commit it names.
+func RevParse(dir, ref string) (string, error) {
+	out, err := git(dir, "rev-parse", "--verify", "--quiet", ref+"^{commit}")
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(out), nil
+}

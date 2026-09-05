@@ -71,6 +71,12 @@ func colorLine(line string) string {
 }
 
 func LiveTail(w io.Writer, stop <-chan struct{}) error {
+	return LiveTailFor(w, "", stop)
+}
+
+// LiveTailFor streams the log, optionally only the lines about one
+// repository.
+func LiveTailFor(w io.Writer, repo string, stop <-chan struct{}) error {
 	f, err := os.Open(LogPath())
 	if err != nil && !os.IsNotExist(err) {
 		return err
@@ -98,7 +104,11 @@ func LiveTail(w io.Writer, stop <-chan struct{}) error {
 		}
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
-			fmt.Fprintln(w, colorLine(scanner.Text()))
+			line := scanner.Text()
+			if repo != "" && !lineMentions(line, repo) {
+				continue
+			}
+			fmt.Fprintln(w, colorLine(line))
 		}
 	}
 }
@@ -140,16 +150,66 @@ func TailLines(out chan<- string, stop <-chan struct{}) {
 	}
 }
 
-func TailLog(n int) string {
+func TailLog(n int) string { return TailLogFor("", n) }
+
+// TailLogFor is the log narrowed to one repository. One file holds every
+// repository, and with several of them syncing on a timer the lines you
+// wanted are a few in a hundred.
+func TailLogFor(repo string, n int) string {
 	b, err := os.ReadFile(LogPath())
 	if err != nil {
 		return "(no log yet)"
 	}
 	lines := strings.Split(strings.TrimRight(string(b), "\n"), "\n")
+	if repo != "" {
+		kept := make([]string, 0, len(lines))
+		for _, line := range lines {
+			if lineMentions(line, repo) {
+				kept = append(kept, line)
+			}
+		}
+		if len(kept) == 0 {
+			return fmt.Sprintf("(nothing logged for %s yet)", repo)
+		}
+		lines = kept
+	}
 	if len(lines) > n {
 		lines = lines[len(lines)-n:]
 	}
 	return strings.Join(lines, "\n")
+}
+
+// lineMentions asks whether a log line is about this repository. syn puts the
+// name at the front of its own lines ("repo: pulled 2 commits"), but hook
+// output is indented under it and a path can carry the name inside a longer
+// word, so the test is the name standing on its own - not appearing anywhere
+// at all, which would make "bot" match "bot-staging".
+func lineMentions(line, repo string) bool {
+	for i := 0; i <= len(line)-len(repo); {
+		j := strings.Index(line[i:], repo)
+		if j < 0 {
+			return false
+		}
+		start := i + j
+		end := start + len(repo)
+		if !isNameChar(byteAt(line, start-1)) && !isNameChar(byteAt(line, end)) {
+			return true
+		}
+		i = end
+	}
+	return false
+}
+
+func byteAt(s string, i int) byte {
+	if i < 0 || i >= len(s) {
+		return ' '
+	}
+	return s[i]
+}
+
+func isNameChar(c byte) bool {
+	return c == '-' || c == '_' || c == '.' ||
+		(c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
 }
 
 // stdLogSink hands anything the standard library's log package prints to our

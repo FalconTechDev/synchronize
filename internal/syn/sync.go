@@ -25,8 +25,17 @@ type Result struct {
 	PulledFiles    []FileChange
 	CommittedFiles []FileChange
 	Backup         string
-	Conflict       *Conflict
-	Err            error
+
+	// MovedTo is the ref a --to pull went to. It can be behind where the
+	// repository was, so the summary must not call it "pulled".
+	MovedTo string
+
+	// RolledBack says the pull was undone because an after-pull hook
+	// failed, so a script can tell "nothing arrived" from "it arrived and
+	// was put back".
+	RolledBack bool
+	Conflict   *Conflict
+	Err        error
 
 	summaryLogged bool
 }
@@ -47,6 +56,12 @@ func (r Result) Summary() string {
 	case r.Conflict != nil:
 		return fmt.Sprintf("%s: CONFLICT on %s (%s) - backup branch %s",
 			r.Repo, r.Branch, strings.Join(r.Conflict.Files, ", "), r.Conflict.BackupBranch)
+	}
+	if r.MovedTo != "" {
+		if r.Pulled == 0 {
+			return fmt.Sprintf("%s: already on %s", r.Repo, r.MovedTo)
+		}
+		return fmt.Sprintf("%s: moved to %s", r.Repo, r.MovedTo)
 	}
 	var parts []string
 	if r.Committed {
@@ -103,6 +118,11 @@ type Engine struct {
 	State    *State
 	Creds    *Credentials
 	Notifier *Notifier
+
+	// SkipChecks waves through a repository that requires green CI. It is
+	// set by --no-checks and never by the watcher, so an unattended sync
+	// cannot decide on its own to deploy something that failed.
+	SkipChecks bool
 }
 
 func NewEngine(cfg *Config) *Engine {
@@ -312,12 +332,62 @@ func (e *Engine) withHooks(r *Repo, op string, run func(*Repo) Result) Result {
 	res.summaryLogged = true
 
 	if firePull {
-		e.runHooks(r, e.hookInfoFor(r, "after-pull", before, pathsOf(res.PulledFiles)), r.Hooks.AfterPull)
+		runs := e.runHooks(r, e.hookInfoFor(r, "after-pull", before, pathsOf(res.PulledFiles)), r.Hooks.AfterPull)
+		if r.Hooks.Rollback && anyFailed(runs) {
+			e.rollbackPull(r, before, &res)
+		}
 	}
 	if firePush {
+		// A failing after-push hook is not rolled back: the commits are on
+		// the remote already, and another machine may have pulled them.
+		// Rewriting published history to tidy up a local script is worse
+		// than the failure it is tidying.
 		e.runHooks(r, e.hookInfoFor(r, "after-push", before, pathsOf(res.CommittedFiles)), r.Hooks.AfterPush)
 	}
 	return res
+}
+
+func anyFailed(runs []HookRun) bool {
+	for _, run := range runs {
+		if run.Err != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// rollbackPull puts the branch back where the pull found it, for a repository
+// that is deployed from rather than worked in: if the new code does not come
+// up, the old code should still be running.
+//
+// It refuses when there is anything uncommitted, because a hard reset would
+// throw that away, and the whole point is to lose nothing.
+func (e *Engine) rollbackPull(r *Repo, before string, res *Result) {
+	if before == "" {
+		Errorf("%s: hook failed, but there is no commit to go back to", r.Name)
+		return
+	}
+	if files, err := ChangedFiles(r.Path); err == nil && len(files) > 0 {
+		Errorf("%s: hook failed, but the working tree has uncommitted changes,\n"+
+			"       so the rollback was skipped rather than throw them away.\n"+
+			"       go back by hand when you have saved them:  git reset --hard %s",
+			r.Name, short(before))
+		return
+	}
+	if _, err := git(r.Path, "reset", "--hard", before); err != nil {
+		Errorf("%s: hook failed and the rollback failed too: %v", r.Name, err)
+		return
+	}
+	Warn("%s: after-pull hook failed - rolled back to %s", r.Name, short(before))
+	res.RolledBack = true
+	res.Err = fmt.Errorf("after-pull hook failed; the pull was rolled back to %s", short(before))
+}
+
+func short(sha string) string {
+	if len(sha) > 8 {
+		return sha[:8]
+	}
+	return sha
 }
 
 // hookInfoFor describes the sync that just happened to the hook about to run.
@@ -368,6 +438,15 @@ func (e *Engine) pull(r *Repo) Result {
 	if behind == 0 {
 		e.markSynced(r)
 		return res
+	}
+
+	// Ask before touching anything: a repository that is deployed from
+	// should not have code land in it that its own CI rejected.
+	if head, err := RevParse(r.Path, r.Remote+"/"+branch); err == nil {
+		if err := e.checkGate(r, head); err != nil {
+			res.Err = err
+			return res
+		}
 	}
 
 	res.PulledLog = CommitLog(r.Path, "HEAD", r.Remote+"/"+branch, 5)

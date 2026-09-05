@@ -108,13 +108,14 @@ syn remove <repo>                       # stop tracking; files stay put
 
 ```bash
 syn pull <repo|all> [--force]    # bring changes in (--force resets to remote)
+syn pull <repo> --to v1.4.2      # go to one commit, tag or branch and stay there
 syn push <repo|all> [--force]    # commit your work and publish it
 syn sync <repo|all>              # pull, then push
 syn status <repo|all> [--fetch]
 syn diff <repo|all>              # what is not committed yet
 syn diff <repo> --pushed         # what this branch has that the remote lacks
 syn undo <repo> [--yes]          # take back syn's last commit, keep the changes
-syn log [n] [--live]
+syn log [repo] [n] [--live]      # all of it, or one repository's
 ```
 
 Add `--dry-run` to `pull`, `push` or `sync` to see what they would do without
@@ -171,6 +172,7 @@ syn hook ls
 syn hook run my-bot after-pull      # try it without syncing
 syn hook clear my-bot [event]
 syn hook timeout my-bot 120
+syn hook rollback my-bot on|off
 ```
 
 Events are `after-pull`, `after-push` and `on-conflict`. They fire only when
@@ -188,14 +190,52 @@ The hook is told what happened, so it can decide whether it cares:
 | `SYN_CHANGED_FILES` | the paths behind that, one per line |
 | `SYN_CHANGED_COUNT` | how many, for the common `if` |
 
-One path per line because a comma is a legal character in a filename:
+One path per line because a comma is a legal character in a filename.
 
-```sh
-syn hook add my-bot after-pull '
-  echo "$SYN_CHANGED_FILES" | grep -q "^src/" || exit 0
-  systemctl restart my-bot
-'
+You can leave that test to syn instead — a hook can name the paths it cares
+about, and sits out any sync that did not touch them:
+
+```bash
+syn hook add my-bot after-pull --paths "src/**,go.mod" "systemctl restart my-bot"
 ```
+
+### Deploying with it
+
+Three things turn the above into something you can point at a server.
+
+**Do not deploy what CI rejected.** With this on, a pull checks the commit's
+GitHub status first — both commit statuses and Actions check runs — and
+refuses while anything is red or still running:
+
+```bash
+syn set my-bot require_checks on
+syn pull my-bot --no-checks      # ...unless you say otherwise, by hand
+```
+
+If GitHub cannot be reached, the pull stops rather than assume the best.
+
+**Put it back if it does not come up.** An after-pull hook that fails can
+undo its own pull, so the version that was running stays running:
+
+```bash
+syn hook rollback my-bot on
+```
+
+It stands down when the working tree has uncommitted changes, because a hard
+reset would take them with it. An after-push hook is never rolled back — those
+commits are on the remote and someone may already have them.
+
+**Pin a release, or go back to one.** `--to` moves the repository to exactly
+one ref and nowhere else:
+
+```bash
+syn pull my-bot --to v1.4.2      # this release, on every machine
+syn pull my-bot --to v1.4.1      # that one was bad; back to the last good one
+```
+
+It takes a backup branch first, like any other rewrite, and a branch name
+means the remote's — `--to main` is the remote's main, not this machine's
+copy of it.
 
 ### Conflicts
 
@@ -296,6 +336,7 @@ Per repository:
 syn set my-repo interval 12h
 syn set my-repo branch dev
 syn set my-repo name shorter-name
+syn set my-repo require_checks on   # never pull a commit whose CI is not green
 ```
 
 ---
