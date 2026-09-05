@@ -22,7 +22,6 @@ func (e *Engine) SendFiles(destRepo *Repo, srcPaths []string) error {
 		Info("copied %s → %s", filepath.Base(src), dst)
 	}
 
-	
 	if _, err := git(destRepo.Path, "add", "syn-send/"); err != nil {
 		return err
 	}
@@ -86,7 +85,7 @@ func (e *Engine) ReceiveFiles(repo *Repo, destDir string, stop <-chan struct{}) 
 	sendDir := filepath.Join(repo.Path, "syn-send")
 
 	seen := map[string]bool{}
-	
+
 	if entries, err := os.ReadDir(sendDir); err == nil {
 		for _, e := range entries {
 			seen[e.Name()] = true
@@ -101,7 +100,6 @@ func (e *Engine) ReceiveFiles(repo *Repo, destDir string, stop <-chan struct{}) 
 		case <-time.After(5 * time.Second):
 		}
 
-		
 		e.Pull(repo)
 
 		entries, err := os.ReadDir(sendDir)

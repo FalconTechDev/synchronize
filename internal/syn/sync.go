@@ -23,9 +23,9 @@ type Result struct {
 	// is how surprises happen.
 	PulledFiles    []FileChange
 	CommittedFiles []FileChange
-	Backup    string
-	Conflict  *Conflict
-	Err       error
+	Backup         string
+	Conflict       *Conflict
+	Err            error
 
 	summaryLogged bool
 }
@@ -161,7 +161,7 @@ func (e *Engine) backup(r *Repo, branch string) string {
 	}
 	base := fmt.Sprintf("syn/backup/%s/%s/%s",
 		sanitizeRef(hostname()), sanitizeRef(branch), time.Now().Format("20060102-150405"))
-	
+
 	name := base
 	for i := 2; gitOK(r.Path, "rev-parse", "--verify", "--quiet", name); i++ {
 		name = fmt.Sprintf("%s-%d", base, i)
@@ -246,7 +246,7 @@ func (e *Engine) integrate(r *Repo, branch string) (conflicted bool, files []str
 	}
 	files = ConflictedFiles(r.Path)
 	if len(files) == 0 && InProgress(r.Path) == "" {
-		
+
 		return false, nil, gerr
 	}
 	if e.Cfg.Strategy == "merge" {
@@ -481,7 +481,7 @@ func (e *Engine) RunAll(repos []*Repo, op func(*Repo) Result) []Result {
 		case res.Err != nil:
 			Errorf("%s", res.Summary())
 		case res.Conflict != nil:
-			
+
 		default:
 			if !res.summaryLogged {
 				Info("%s", res.Detail())

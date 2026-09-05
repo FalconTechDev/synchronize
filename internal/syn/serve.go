@@ -87,7 +87,7 @@ func (e *Engine) Serve(cfg *Config, addr string) error {
 		writeResult(w, res)
 	})
 	mux.HandleFunc("/api/log", func(w http.ResponseWriter, r *http.Request) {
-		
+
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")

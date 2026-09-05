@@ -2,6 +2,8 @@ package syn
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -54,16 +56,30 @@ func (e *Engine) Resolve(r *Repo, mode string) Result {
 			e.clearConflict(r.Name)
 			return e.Sync(r)
 		}
-		res.Err = fmt.Errorf("unresolved conflicts remain: %s\n"+
-			"        fix the markers in those files, then run `syn resolve %s` again\n"+
-			"        or pick a side outright: syn resolve %s --ours | --theirs",
-			strings.Join(files, ", "), r.Name, r.Name)
-		return res
+		// The markers being gone is how someone says they have finished. Git
+		// cannot tell: the index stays unmerged until the file is staged. So
+		// stage it for them, rather than sending them round the same loop.
+		if left := withMarkers(r.Path, files); len(left) > 0 {
+			res.Err = fmt.Errorf("conflict markers are still in: %s\n"+
+				"        keep the part you want, delete the <<<<<<< ======= >>>>>>> lines,\n"+
+				"        then run `syn resolve %s` again\n"+
+				"        or take one side outright: syn resolve %s --ours | --theirs",
+				strings.Join(left, ", "), r.Name, r.Name)
+			return res
+		}
+		for _, f := range files {
+			if _, err := git(r.Path, "add", "--", f); err != nil {
+				res.Err = fmt.Errorf("could not stage %s: %w", f, err)
+				return res
+			}
+		}
+		Info("%s: markers are gone from %s", r.Name, strings.Join(files, ", "))
+		e.clearConflict(r.Name)
+		e.dropAutoStash(r)
+		return e.Sync(r)
 	}
 	if op == "" {
-		
-		
-		
+
 		if c, ok := e.State.Conflicts[r.Name]; ok {
 			if replayed, err := e.replay(r, c.Branch, mode); err != nil {
 				res.Err = err
@@ -96,8 +112,7 @@ func (e *Engine) replay(r *Repo, branch, mode string) (bool, error) {
 	if e.Cfg.Strategy == "merge" {
 		args = []string{"merge", "--no-edit"}
 	}
-	
-	
+
 	switch mode {
 	case "ours":
 		args = append(args, pickX(e.Cfg.Strategy, "-Xtheirs", "-Xours"))
@@ -138,7 +153,7 @@ func (e *Engine) ForcePull(r *Repo) Result {
 		res.Err = fmt.Errorf("%s/%s does not exist on the remote", r.Remote, branch)
 		return res
 	}
-	
+
 	if committed, _, err := e.autoCommit(r); err != nil {
 		res.Err = err
 		return res
@@ -292,4 +307,41 @@ func pickText(cond bool, yes, no string) string {
 		return yes
 	}
 	return no
+}
+
+// withMarkers reports which of these files still carry conflict markers, so
+// "I have finished editing" can be told apart from "I have not started".
+func withMarkers(dir string, files []string) []string {
+	var left []string
+	for _, f := range files {
+		b, err := os.ReadFile(filepath.Join(dir, f))
+		if err != nil {
+			continue // deleted on one side; there is nothing to read
+		}
+		text := string(b)
+		if strings.Contains(text, "\n<<<<<<< ") || strings.HasPrefix(text, "<<<<<<< ") {
+			left = append(left, f)
+		}
+	}
+	return left
+}
+
+// dropAutoStash removes the stash a pull left behind once its content has been
+// dealt with, so copies of your work do not pile up in the stash list unseen.
+func (e *Engine) dropAutoStash(r *Repo) {
+	out, err := git(r.Path, "stash", "list", "--format=%gd %gs")
+	if err != nil || out == "" {
+		return
+	}
+	for _, line := range strings.Split(out, "\n") {
+		if !strings.Contains(line, "syn-auto-stash") {
+			continue
+		}
+		if ref := strings.Fields(line); len(ref) > 0 {
+			if _, err := git(r.Path, "stash", "drop", ref[0]); err == nil {
+				Debug("%s: dropped %s", r.Name, ref[0])
+			}
+		}
+		return
+	}
 }

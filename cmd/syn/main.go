@@ -1,5 +1,3 @@
-
-
 package main
 
 import (
@@ -25,7 +23,8 @@ USAGE
   syn <command> [repo] [flags]
 
   Commands that touch a repository need it named - see ` + "`syn list`" + `.
-  Pass "all" to act on every enabled repository at once.
+  Pass "all" to act on every repository you track. Pausing one only
+  keeps it out of automatic syncing - you can still reach it by hand.
 
 GITHUB AUTH
   auth login             authenticate with GitHub (PAT or Device Flow)
@@ -41,8 +40,8 @@ REPOSITORIES
   repo ls                list your GitHub repos (requires auth)
   ls  (or list)          show registered repositories
   remove <repo>          stop tracking a repository (files untouched)
-  enable <repo>          include it in --all runs
-  disable <repo>         exclude it from --all runs
+  enable <repo>          same as auto <repo> on
+  disable <repo>         same as auto <repo> off
   set <repo> <k> <v>     change name, remote, branch, interval
                          interval takes minutes or a duration: 30m, 12h, 1d
 
@@ -108,7 +107,8 @@ OTHER
                          notify, commit_template, keep_backup_days
   log [n]                last n log lines (default 40)
   log --live             stream the log in real time
-  diff <repo|all>         show uncommitted diff
+  diff <repo|all>        what is not committed yet, untracked files included
+  diff <repo> --pushed   what this branch has that the remote does not
   doctor                 check that everything is wired up
   version                print the version
 
@@ -191,7 +191,7 @@ func run(args []string) error {
 		}
 		return ""
 	}
-	
+
 	selector := arg(0)
 	if has("--all") {
 		selector = "all"
@@ -287,11 +287,9 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		fmt.Printf("synchronize %s (%s/%s)\n", Version, runtime.GOOS, runtime.GOARCH)
 		return nil
 
-	
 	case "auth":
 		return cmdAuth(cfg, creds, rest, has, values)
 
-	
 	case "init":
 		return cmdInit(cfg, arg(0))
 	case "repo":
@@ -302,9 +300,15 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 			fmt.Println("streaming log (Ctrl+C to stop)...")
 			return syn.LiveTail(os.Stdout, stop)
 		}
-		n := 50
+		n := 40
 		if v := values["--lines"]; v != "" {
 			fmt.Sscanf(v, "%d", &n)
+		} else if arg(0) != "" {
+			if parsed, err := strconv.Atoi(arg(0)); err == nil && parsed > 0 {
+				n = parsed
+			} else {
+				return fmt.Errorf("log takes a number of lines, not %q", arg(0))
+			}
 		}
 		fmt.Println(syn.TailLog(n))
 		return nil
@@ -315,19 +319,25 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 			return err
 		}
 		for _, r := range repos {
-			branch := r.Branch
-			if branch == "" {
-				branch, _ = syn.CurrentBranch(r.Path)
+			var out string
+			var err error
+			if has("--pushed") {
+				branch := r.Branch
+				if branch == "" {
+					branch, _ = syn.CurrentBranch(r.Path)
+				}
+				out, err = syn.DiffAgainstRemote(r.Path, r.Remote, branch)
+			} else {
+				out, err = syn.Diff(r.Path)
 			}
-			out, err := syn.Diff(r.Path, r.Remote, branch)
 			if err != nil {
 				return err
 			}
 			if len(repos) > 1 {
 				fmt.Printf("=== %s ===\n", r.Name)
 			}
-			if out == "" {
-				fmt.Println("(no changes)")
+			if strings.TrimSpace(out) == "" {
+				fmt.Println("(nothing uncommitted)")
 			} else {
 				fmt.Println(out)
 			}
@@ -360,7 +370,6 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 	case "set":
 		return cmdSet(cfg, arg(0), arg(1), arg(2))
 
-	
 	case "files":
 		return cmdFiles(cfg, rest)
 
@@ -378,6 +387,9 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		if err != nil {
 			return err
 		}
+		// Started by the scheduler there is a console window nobody asked
+		// for; started from a terminal this does nothing.
+		syn.HideConsoleWindow()
 		if has("--no-tray") {
 			engine.Watch(repos)
 		} else {
@@ -421,7 +433,7 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		}
 		return engine.RestoreBackup(repos[0], arg(1))
 	case "prune":
-		days := -1 
+		days := -1
 		if v := values["--days"]; v != "" {
 			n, err := strconv.Atoi(v)
 			if err != nil || n < 0 {
@@ -650,7 +662,7 @@ func cmdAuth(cfg *syn.Config, creds *syn.Credentials, rest []string, has func(st
 			syn.Info("logged in as %s", display)
 			return nil
 		}
-		
+
 		clientID := cfg.GitHubClientID
 		if clientID == "" {
 			fmt.Fprintln(os.Stderr, "No GitHub OAuth App configured. Options:")
@@ -784,7 +796,6 @@ func cmdRepoAdd(cfg *syn.Config, creds *syn.Credentials, slug string, values map
 		return fmt.Errorf("could not find %s on GitHub: %w\n(private repo? run `syn auth login` first)", slug, err)
 	}
 
-	
 	destPath := values["--path"]
 	if destPath == "" {
 		destPath = "./" + repoName
@@ -794,13 +805,11 @@ func cmdRepoAdd(cfg *syn.Config, creds *syn.Credentials, slug string, values map
 		return err
 	}
 
-	
 	branch := values["--branch"]
 	if branch == "" {
 		branch = info.DefaultBranch
 	}
 
-	
 	interval := 0
 	if v := values["--interval"]; v != "" {
 		n, err := strconv.Atoi(v)
@@ -836,7 +845,6 @@ func cmdRepoAdd(cfg *syn.Config, creds *syn.Credentials, slug string, values map
 		}
 	}
 
-	
 	if syn.IsRepo(abs) {
 		syn.Info("directory %s is already a git repo - linking it", abs)
 	} else {
@@ -1043,6 +1051,12 @@ func cmdFiles(cfg *syn.Config, rest []string) error {
 	if len(rest) > 0 {
 		sub = rest[0]
 	}
+	// `syn files <repo>` is the form the docs use and the one people reach for.
+	if sub != "" && cfg.Find(sub) != nil {
+		rest = append([]string{"show"}, rest...)
+		sub = "show"
+	}
+
 	switch sub {
 	case "show":
 		if len(rest) < 2 {
@@ -1141,7 +1155,7 @@ func cmdFiles(cfg *syn.Config, rest []string) error {
 		return nil
 
 	case "":
-		return fmt.Errorf("usage: syn files <show|include|exclude|remove-pattern|clear> <repo> [pattern]")
+		return fmt.Errorf("usage: syn files <repo>, or syn files <include|exclude|clear> <repo> <glob>")
 	default:
 		return fmt.Errorf("unknown files subcommand %q", sub)
 	}
@@ -1661,9 +1675,7 @@ func cmdTmp(cfg *syn.Config, creds *syn.Credentials, rest []string, has func(str
 }
 
 func cmdSend(cfg *syn.Config, creds *syn.Credentials, engine *syn.Engine, rest []string, values map[string]string) error {
-	
-	
-	
+
 	if len(rest) == 0 {
 		return fmt.Errorf("usage: syn send <file> [@repo-name]\n  or:  syn send <file> (creates a new tmp repo)")
 	}
@@ -1680,7 +1692,7 @@ func cmdSend(cfg *syn.Config, creds *syn.Credentials, engine *syn.Engine, rest [
 	if len(files) == 0 {
 		return fmt.Errorf("no files specified")
 	}
-	
+
 	for _, f := range files {
 		if _, err := os.Stat(f); err != nil {
 			return fmt.Errorf("file not found: %s", f)
@@ -1695,7 +1707,6 @@ func cmdSend(cfg *syn.Config, creds *syn.Credentials, engine *syn.Engine, rest [
 		return engine.SendFiles(repo, files)
 	}
 
-	
 	name, err := engine.SendViaNewTmp(creds, cfg, files)
 	if err != nil {
 		return err
@@ -1712,7 +1723,7 @@ func cmdEncrypt(cfg *syn.Config, creds *syn.Credentials, rest []string, values m
 	}
 	switch sub {
 	case "init":
-		
+
 		if len(rest) < 2 {
 			return fmt.Errorf("usage: syn encrypt init <repo-name>")
 		}
@@ -1736,7 +1747,7 @@ func cmdEncrypt(cfg *syn.Config, creds *syn.Credentials, rest []string, values m
 		return nil
 
 	case "add-key":
-		
+
 		if len(rest) < 3 {
 			return fmt.Errorf("usage: syn encrypt add-key <repo-name> <hex-key>")
 		}
@@ -1765,7 +1776,6 @@ func cmdEncrypt(cfg *syn.Config, creds *syn.Credentials, rest []string, values m
 		fmt.Println(hexKey)
 		return nil
 
-	
 	case "clean":
 		if len(rest) < 2 {
 			return fmt.Errorf("clean: need repo name")

@@ -14,8 +14,7 @@ import (
 
 const (
 	githubHost = "github.com"
-	
-	
+
 	DefaultClientID = ""
 )
 
@@ -129,7 +128,7 @@ type GHRepo struct {
 	DefaultBranch string `json:"default_branch"`
 	Private       bool   `json:"private"`
 	Description   string `json:"description"`
-	Size          int    `json:"size"` 
+	Size          int    `json:"size"`
 }
 
 func (r *GHRepo) CloneURLWithAuth(token string) string {
@@ -204,7 +203,7 @@ func DeviceFlowPoll(clientID string, d *DeviceFlowStart) (string, error) {
 		vals, _ := url.ParseQuery(string(b))
 		switch vals.Get("error") {
 		case "authorization_pending":
-			
+
 		case "slow_down":
 			interval += 5 * time.Second
 		case "expired_token":

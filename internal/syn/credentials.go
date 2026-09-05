@@ -8,7 +8,7 @@ import (
 )
 
 type Credentials struct {
-	Tokens map[string]string `json:"tokens"` 
+	Tokens map[string]string `json:"tokens"`
 }
 
 func credsPath() string { return filepath.Join(Home(), "credentials.json") }

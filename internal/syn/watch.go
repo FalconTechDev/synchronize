@@ -16,7 +16,7 @@ func (e *Engine) Watch(repos []*Repo) {
 func (e *Engine) WatchWithTray(repos []*Repo, cfg *Config) {
 	stop := make(chan struct{})
 	go e.watchLoop(repos, stop)
-	
+
 	runTrayWithStop(cfg, e, stop)
 }
 
@@ -87,7 +87,6 @@ func (e *Engine) watchLoop(repos []*Repo, externalStop <-chan struct{}) {
 		})
 	})
 
-	
 	TrayMarkSyncing(true)
 	e.RunAll(repos, e.Pull)
 	TrayMarkSyncing(false)

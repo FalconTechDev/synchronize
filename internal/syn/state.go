@@ -18,7 +18,7 @@ type Conflict struct {
 }
 
 type State struct {
-	Conflicts map[string]Conflict  `json:"conflicts"` 
+	Conflicts map[string]Conflict  `json:"conflicts"`
 	LastSync  map[string]time.Time `json:"last_sync"`
 }
 

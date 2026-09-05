@@ -22,9 +22,9 @@ type App struct {
 	engine *syn.Engine
 	creds  *syn.Credentials
 
-	watching bool
+	watching  bool
 	watchStop chan struct{}
-	busy     map[string]bool
+	busy      map[string]bool
 }
 
 func NewApp() *App {
@@ -60,23 +60,23 @@ func (a *App) emit(event string, data any) {
 // ------------------------------------------------------------------ types
 
 type RepoView struct {
-	Name      string `json:"name"`
-	Path      string `json:"path"`
-	Slug      string `json:"slug"`
-	Branch    string `json:"branch"`
-	Remote    string `json:"remote"`
-	Tracking  string `json:"tracking"`
-	Ahead     int    `json:"ahead"`
-	Behind    int    `json:"behind"`
-	Dirty     bool   `json:"dirty"`
-	Changed   int    `json:"changed"`
-	Enabled   bool   `json:"enabled"`
-	Private   bool   `json:"private"`
-	Interval  int    `json:"interval"`
-	LastSync  string `json:"lastSync"`
-	Conflict  string `json:"conflict"`
-	Busy      bool   `json:"busy"`
-	Err       string `json:"error"`
+	Name     string `json:"name"`
+	Path     string `json:"path"`
+	Slug     string `json:"slug"`
+	Branch   string `json:"branch"`
+	Remote   string `json:"remote"`
+	Tracking string `json:"tracking"`
+	Ahead    int    `json:"ahead"`
+	Behind   int    `json:"behind"`
+	Dirty    bool   `json:"dirty"`
+	Changed  int    `json:"changed"`
+	Enabled  bool   `json:"enabled"`
+	Private  bool   `json:"private"`
+	Interval int    `json:"interval"`
+	LastSync string `json:"lastSync"`
+	Conflict string `json:"conflict"`
+	Busy     bool   `json:"busy"`
+	Err      string `json:"error"`
 }
 
 type AppState struct {
@@ -273,11 +273,7 @@ func (a *App) Diff(name string) (string, error) {
 	if r == nil {
 		return "", fmt.Errorf("repo %q is not registered", name)
 	}
-	branch := r.Branch
-	if branch == "" {
-		branch, _ = syn.CurrentBranch(r.Path)
-	}
-	return syn.Diff(r.Path, r.Remote, branch)
+	return syn.Diff(r.Path)
 }
 
 type RepoDetail struct {

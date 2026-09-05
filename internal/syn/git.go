@@ -26,7 +26,7 @@ func (e *GitError) Error() string {
 func (e *GitError) Unwrap() error { return e.Err }
 
 var gitBaseEnv = []string{
-	"GIT_TERMINAL_PROMPT=0", 
+	"GIT_TERMINAL_PROMPT=0",
 	"GIT_OPTIONAL_LOCKS=0",
 }
 
@@ -71,9 +71,7 @@ func gitWithToken(dir, token string, args ...string) (string, error) {
 	if token == "" {
 		return git(dir, args...)
 	}
-	
-	
-	
+
 	helper := fmt.Sprintf(`!f(){ echo username=oauth2; echo password=%s; }; f`, token)
 	extra := []string{
 		"GIT_CONFIG_COUNT=2",
@@ -163,7 +161,7 @@ func RemoteURL(dir, remote string) (string, error) {
 func AheadBehind(dir, branch, remote string) (ahead, behind int, err error) {
 	ref := remote + "/" + branch
 	if !gitOK(dir, "rev-parse", "--verify", "--quiet", ref) {
-		
+
 		n, cerr := git(dir, "rev-list", "--count", "HEAD")
 		if cerr != nil {
 			return 0, 0, cerr
@@ -244,7 +242,7 @@ func RecentCommits(dir string, limit int) []Commit {
 // leading space of an unstaged change is trimmed away before we see it, which
 // used to shift every path by one character.
 func splitStatusLine(line string) (code, path string, ok bool) {
-	line = strings.TrimRight(line, " 	")
+	line = strings.TrimRight(line, " \t\r")
 	i := strings.IndexByte(line, ' ')
 	if i <= 0 {
 		return "", "", false
@@ -301,18 +299,50 @@ func CommitLog(dir, from, to string, limit int) []string {
 	return lines
 }
 
-func Diff(dir, remote, branch string) (string, error) {
-	if remote != "" && branch != "" {
-		ref := remote + "/" + branch
-		if gitOK(dir, "rev-parse", "--verify", "--quiet", ref) {
-			return git(dir, "diff", ref+"...HEAD")
-		}
+// Diff shows what has not been committed yet - the thing you would lose, and
+// the thing an automatic commit is about to take. Untracked files are included
+// because syn commits with `add -A` and would sweep them in too.
+func Diff(dir string) (string, error) {
+	out, err := git(dir, "diff", "HEAD")
+	if err != nil {
+		return "", err
 	}
-	return git(dir, "diff", "HEAD")
+	untracked, err := git(dir, "ls-files", "--others", "--exclude-standard")
+	if err != nil || untracked == "" {
+		return out, nil
+	}
+	var b strings.Builder
+	b.WriteString(out)
+	for _, f := range strings.Split(untracked, "\n") {
+		if f == "" {
+			continue
+		}
+		d, err := git(dir, "diff", "--no-index", "--", os.DevNull, f)
+		if err != nil && d == "" {
+			continue // --no-index exits non-zero whenever there is a difference
+		}
+		if b.Len() > 0 {
+			b.WriteString("\n")
+		}
+		b.WriteString(d)
+	}
+	return b.String(), nil
+}
+
+// DiffAgainstRemote shows what this branch carries that the remote does not.
+func DiffAgainstRemote(dir, remote, branch string) (string, error) {
+	if remote == "" || branch == "" {
+		return git(dir, "diff", "HEAD")
+	}
+	ref := remote + "/" + branch
+	if !gitOK(dir, "rev-parse", "--verify", "--quiet", ref) {
+		return git(dir, "diff", "HEAD")
+	}
+	return git(dir, "diff", ref+"...HEAD")
 }
 
 func RemoteHost(rawURL string) string {
-	
+
 	if strings.HasPrefix(rawURL, "git@") {
 		rawURL = strings.TrimPrefix(rawURL, "git@")
 		if i := strings.IndexByte(rawURL, ':'); i >= 0 {

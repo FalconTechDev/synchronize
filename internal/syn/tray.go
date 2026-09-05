@@ -1,7 +1,6 @@
 package syn
 
 import (
-	_ "embed"
 	"fmt"
 	"os"
 	"os/exec"
@@ -12,9 +11,6 @@ import (
 
 	"fyne.io/systray"
 )
-
-//go:embed assets/tray.png
-var trayIconData []byte
 
 var (
 	trayErrors  atomic.Int32
@@ -48,7 +44,6 @@ func runTrayWithStop(cfg *Config, engine *Engine, stop chan struct{}) {
 		systray.AddSeparator()
 		mQuit := systray.AddMenuItem("Quit synchronize", "Stop the watcher and exit")
 
-		
 		go func() {
 			for range time.Tick(2 * time.Second) {
 				errs := trayErrors.Load()
@@ -68,7 +63,6 @@ func runTrayWithStop(cfg *Config, engine *Engine, stop chan struct{}) {
 			}
 		}()
 
-		
 		go func() {
 			for {
 				select {
@@ -84,7 +78,7 @@ func runTrayWithStop(cfg *Config, engine *Engine, stop chan struct{}) {
 					openPath(Home())
 				case <-mQuit.ClickedCh:
 					close(stop)
-					
+
 					time.Sleep(3 * time.Second)
 					systray.Quit()
 					os.Exit(0)
@@ -106,4 +100,3 @@ func openPath(path string) {
 	}
 	cmd.Start()
 }
-

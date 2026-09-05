@@ -9,7 +9,7 @@ import (
 
 func ApplySparseCheckout(r *Repo) error {
 	if len(r.Include) == 0 && len(r.Exclude) == 0 {
-		
+
 		if gitOK(r.Path, "sparse-checkout", "disable") {
 			Debug("%s: sparse-checkout disabled (all files visible)", r.Name)
 		}
@@ -18,11 +18,11 @@ func ApplySparseCheckout(r *Repo) error {
 
 	var lines []string
 	if len(r.Include) == 0 {
-		lines = append(lines, "/*") 
+		lines = append(lines, "/*")
 	} else {
 		for _, p := range r.Include {
 			if !strings.HasPrefix(p, "/") && !strings.Contains(p, "/") {
-				p = "/" + p 
+				p = "/" + p
 			}
 			lines = append(lines, p)
 		}
@@ -37,7 +37,6 @@ func ApplySparseCheckout(r *Repo) error {
 		lines = append(lines, p)
 	}
 
-	
 	sparseDir := filepath.Join(r.Path, ".git", "info")
 	if err := os.MkdirAll(sparseDir, 0o755); err != nil {
 		return err
@@ -50,7 +49,7 @@ func ApplySparseCheckout(r *Repo) error {
 		return fmt.Errorf("could not enable sparse-checkout: %w", err)
 	}
 	if _, err := git(r.Path, "checkout"); err != nil {
-		
+
 		Debug("%s: sparse-checkout apply: %v", r.Name, err)
 	}
 	Debug("%s: sparse-checkout set (%d include, %d exclude patterns)", r.Name, len(r.Include), len(r.Exclude))

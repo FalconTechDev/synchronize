@@ -10,14 +10,14 @@ import (
 )
 
 const (
-	cReset = "\033[0m"
-	cDim   = "\033[38;5;244m"
-	cBold  = "\033[1m"
+	cReset  = "\033[0m"
+	cDim    = "\033[38;5;244m"
+	cBold   = "\033[1m"
 	cAccent = "\033[38;5;141m"
-	cOK    = "\033[38;5;78m"
-	cWarn  = "\033[38;5;179m"
-	cErr   = "\033[38;5;203m"
-	cInfo  = "\033[38;5;75m"
+	cOK     = "\033[38;5;78m"
+	cWarn   = "\033[38;5;179m"
+	cErr    = "\033[38;5;203m"
+	cInfo   = "\033[38;5;75m"
 )
 
 // These keep running until stopped, so the shell points at a real terminal
@@ -288,4 +288,3 @@ func repoNames() []string {
 	}
 	return out
 }
-

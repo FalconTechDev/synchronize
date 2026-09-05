@@ -99,7 +99,7 @@ func TestPullKeepsUncommittedWork(t *testing.T) {
 	if res := env.engine.Push(env.a); !res.OK() {
 		t.Fatalf("push: %v", res.Err)
 	}
-	
+
 	env.write(env.b, "scratch.txt", "work in progress\n")
 
 	if res := env.engine.Pull(env.b); !res.OK() {
@@ -151,7 +151,6 @@ func TestResolveReplaysThenCompletes(t *testing.T) {
 		t.Fatal("expected a conflict")
 	}
 
-	
 	if res := env.engine.Resolve(env.a, "continue"); res.Err == nil {
 		t.Fatal("expected the replayed conflict to be reported")
 	}
@@ -159,7 +158,6 @@ func TestResolveReplaysThenCompletes(t *testing.T) {
 		t.Fatal("expected conflict markers in the working tree")
 	}
 
-	
 	env.write(env.a, "file.txt", "base\nmerged\n")
 	if res := env.engine.Resolve(env.a, "continue"); !res.OK() {
 		t.Fatalf("resolve: %+v (%v)", res, res.Err)

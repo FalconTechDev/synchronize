@@ -14,30 +14,26 @@ type Repo struct {
 	Name    string `json:"name"`
 	Path    string `json:"path"`
 	Remote  string `json:"remote"`
-	Branch  string `json:"branch"` 
+	Branch  string `json:"branch"`
 	Enabled bool   `json:"enabled"`
 
-	
-	GithubSlug string `json:"github_slug,omitempty"` 
+	GithubSlug string `json:"github_slug,omitempty"`
 	Private    bool   `json:"private,omitempty"`
-	Temp       bool   `json:"temp,omitempty"` 
+	Temp       bool   `json:"temp,omitempty"`
 
-	
 	IntervalMinutes int `json:"interval_minutes,omitempty"`
 
-	
-	
-	Include []string `json:"include,omitempty"` 
-	Exclude []string `json:"exclude,omitempty"` 
+	Include []string `json:"include,omitempty"`
+	Exclude []string `json:"exclude,omitempty"`
 
 	Hooks Hooks `json:"hooks,omitempty"`
 }
 
 type Hooks struct {
-	AfterPull []string `json:"after_pull,omitempty"`
-	AfterPush []string `json:"after_push,omitempty"`
-	OnConflict []string `json:"on_conflict,omitempty"`
-	TimeoutSeconds int `json:"timeout_seconds,omitempty"`
+	AfterPull      []string `json:"after_pull,omitempty"`
+	AfterPush      []string `json:"after_push,omitempty"`
+	OnConflict     []string `json:"on_conflict,omitempty"`
+	TimeoutSeconds int      `json:"timeout_seconds,omitempty"`
 }
 
 func (h Hooks) Timeout() int {
@@ -59,24 +55,19 @@ type Telegram struct {
 type Config struct {
 	Repos           []Repo   `json:"repos"`
 	Telegram        Telegram `json:"telegram"`
-	Backup          bool     `json:"backup"`           
-	PushBackup      bool     `json:"push_backup"`      
-	Strategy        string   `json:"strategy"`         
-	IntervalMinutes int      `json:"interval_minutes"` 
-	Notify          string   `json:"notify"`           
-	CommitTemplate  string   `json:"commit_template"`  
-	KeepBackupDays  int      `json:"keep_backup_days"` 
+	Backup          bool     `json:"backup"`
+	PushBackup      bool     `json:"push_backup"`
+	Strategy        string   `json:"strategy"`
+	IntervalMinutes int      `json:"interval_minutes"`
+	Notify          string   `json:"notify"`
+	CommitTemplate  string   `json:"commit_template"`
+	KeepBackupDays  int      `json:"keep_backup_days"`
 
-	
-	
 	GitHubClientID string `json:"github_client_id,omitempty"`
 
-	
 	NotifySync bool `json:"notify_sync,omitempty"`
 
-
 	ServeAddr string `json:"serve_addr,omitempty"`
-
 
 	Identity Identity `json:"identity,omitempty"`
 
@@ -192,10 +183,13 @@ func (c *Config) Selected(key string) ([]*Repo, error) {
 		return nil, errors.New("no repositories registered yet - run `syn init` inside a git repo")
 	}
 
+	// "all" means every repository being tracked. Pausing one only takes it
+	// out of automatic syncing - asking for something by hand is never
+	// refused, or work would sit here with no way out.
 	if key == "all" {
-		out := c.EnabledRepos()
-		if len(out) == 0 {
-			return nil, errors.New("every repository is paused - bring one back with: syn auto <repo> on")
+		out := make([]*Repo, 0, len(c.Repos))
+		for i := range c.Repos {
+			out = append(out, &c.Repos[i])
 		}
 		return out, nil
 	}
@@ -216,10 +210,12 @@ func (c *Config) pickHint() string {
 	for i := range c.Repos {
 		names = append(names, c.Repos[i].Name)
 	}
-	return fmt.Sprintf("        pick one of: %s\n        or act on every enabled one with: all",
+	return fmt.Sprintf("        pick one of: %s\n        or act on all of them with: all",
 		strings.Join(names, ", "))
 }
 
+// EnabledRepos are the ones automatic syncing covers. Everything else still
+// answers to commands you type yourself.
 func (c *Config) EnabledRepos() []*Repo {
 	var out []*Repo
 	for i := range c.Repos {

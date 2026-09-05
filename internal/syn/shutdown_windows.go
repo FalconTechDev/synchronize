@@ -9,12 +9,12 @@ import (
 )
 
 var (
-	user32                     = syscall.NewLazyDLL("user32.dll")
-	kernel32                   = syscall.NewLazyDLL("kernel32.dll")
-	procShutdownBlockCreate    = user32.NewProc("ShutdownBlockReasonCreate")
-	procShutdownBlockDestroy   = user32.NewProc("ShutdownBlockReasonDestroy")
-	procGetConsoleWindow       = kernel32.NewProc("GetConsoleWindow")
-	procSetConsoleCtrlHandler  = kernel32.NewProc("SetConsoleCtrlHandler")
+	user32                       = syscall.NewLazyDLL("user32.dll")
+	kernel32                     = syscall.NewLazyDLL("kernel32.dll")
+	procShutdownBlockCreate      = user32.NewProc("ShutdownBlockReasonCreate")
+	procShutdownBlockDestroy     = user32.NewProc("ShutdownBlockReasonDestroy")
+	procGetConsoleWindow         = kernel32.NewProc("GetConsoleWindow")
+	procSetConsoleCtrlHandler    = kernel32.NewProc("SetConsoleCtrlHandler")
 	procSetProcessShutdownParams = kernel32.NewProc("SetProcessShutdownParameters")
 )
 

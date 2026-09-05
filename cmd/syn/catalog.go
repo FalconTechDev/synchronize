@@ -17,16 +17,16 @@ var catalog = map[string]cmdInfo{
 	"push":   {"<repo|all> [--force]", "commit local work and publish it", "Syncing"},
 	"sync":   {"<repo|all>", "pull, then push", "Syncing"},
 	"status": {"<repo|all> [--fetch]", "show what a sync would do", "Syncing"},
-	"diff":   {"<repo|all>", "show uncommitted changes", "Syncing"},
+	"diff":   {"<repo|all> [--pushed]", "what is not committed yet; --pushed: what the remote lacks", "Syncing"},
 
 	// Repositories
-	"ls":      {"", "list the repositories syn tracks", "Repositories"},
-	"list":    {"", "list the repositories syn tracks", "Repositories"},
-	"init":    {"[path]", "track the git repo at path (default: here)", "Repositories"},
-	"repo":    {"<add|ls>", "clone from GitHub, or list what is there", "Repositories"},
-	"remove":  {"<repo>", "stop tracking it; the files stay put", "Repositories"},
-	"set":     {"<repo> <name|remote|branch|interval> <value>", "change a repository setting", "Repositories"},
-	"files":   {"<include|exclude|clear> <repo> <glob>", "sync only part of a repository", "Repositories"},
+	"ls":     {"", "list the repositories syn tracks", "Repositories"},
+	"list":   {"", "list the repositories syn tracks", "Repositories"},
+	"init":   {"[path]", "track the git repo at path (default: here)", "Repositories"},
+	"repo":   {"<add|ls>", "clone from GitHub, or list what is there", "Repositories"},
+	"remove": {"<repo>", "stop tracking it; the files stay put", "Repositories"},
+	"set":    {"<repo> <name|remote|branch|interval> <value>", "change a repository setting", "Repositories"},
+	"files":  {"<include|exclude|clear> <repo> <glob>", "sync only part of a repository", "Repositories"},
 
 	// Hooks
 	"hook": {"<ls|add|run|clear|timeout>", "run a command after a sync changes something", "Hooks"},
@@ -43,7 +43,7 @@ var catalog = map[string]cmdInfo{
 	"doctor": {"", "check that git, auth and the repos are wired up", "Account and setup"},
 
 	"auto":  {"[login|watch|shutdown|<repo>] [on|off]", "what syncs by itself: at login, on a timer, at shutdown", "Running in the background"},
-	"start":     {"", "run the installed watcher right now", "Running in the background"},
+	"start": {"", "run the installed watcher right now", "Running in the background"},
 
 	// Long running - the shell sends these to a real terminal
 	"watch": {"<repo|all>", "sync on a timer and publish before shutdown", "Running in the background"},
@@ -63,17 +63,17 @@ var catalog = map[string]cmdInfo{
 
 // subHints describe the second word, so a hint never dries up mid-command.
 var subHints = map[string]cmdInfo{
-	"repo add":     {"<owner/name> [--path ./dir] [--branch main] [--interval 10]", "clone it and start tracking", ""},
-	"repo ls":      {"", "list your repositories on GitHub", ""},
-	"auth login":   {"[--pat <token>]", "sign in with a personal access token", ""},
-	"auth logout":  {"", "forget the stored token", ""},
-	"auth status":  {"", "show who is signed in", ""},
-	"auth setup":   {"<github oauth client id>", "use your own OAuth app", ""},
-	"hook ls":      {"", "show the hooks on every repository", ""},
-	"hook add":     {"<repo> <after-pull|after-push|on-conflict> <command>", "run a command after a sync", ""},
-	"hook run":     {"<repo> <after-pull|after-push|on-conflict>", "try a hook without syncing", ""},
-	"hook clear":   {"<repo> [event]", "remove hooks", ""},
-	"hook timeout": {"<repo> <seconds>", "how long a hook may run", ""},
+	"repo add":      {"<owner/name> [--path ./dir] [--branch main] [--interval 10]", "clone it and start tracking", ""},
+	"repo ls":       {"", "list your repositories on GitHub", ""},
+	"auth login":    {"[--pat <token>]", "sign in with a personal access token", ""},
+	"auth logout":   {"", "forget the stored token", ""},
+	"auth status":   {"", "show who is signed in", ""},
+	"auth setup":    {"<github oauth client id>", "use your own OAuth app", ""},
+	"hook ls":       {"", "show the hooks on every repository", ""},
+	"hook add":      {"<repo> <after-pull|after-push|on-conflict> <command>", "run a command after a sync", ""},
+	"hook run":      {"<repo> <after-pull|after-push|on-conflict>", "try a hook without syncing", ""},
+	"hook clear":    {"<repo> [event]", "remove hooks", ""},
+	"hook timeout":  {"<repo> <seconds>", "how long a hook may run", ""},
 	"files include": {"<repo> <glob>", "keep only what matches, e.g. src/** or notes.md", ""},
 	"files exclude": {"<repo> <glob>", "keep everything except, e.g. logs/** or *.mp4", ""},
 	"files clear":   {"<repo>", "go back to syncing everything", ""},

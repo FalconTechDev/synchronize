@@ -135,7 +135,7 @@ func SetupEncryption(repoPath, repoName string) error {
 			return err
 		}
 	}
-	
+
 	gaPath := filepath.Join(repoPath, ".gitattributes")
 	rule := "* filter=syn-crypt\n"
 	existing, _ := os.ReadFile(gaPath)

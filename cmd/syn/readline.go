@@ -261,7 +261,7 @@ func completeLine(line string, commands, repos []string) ([]string, string) {
 		if len(fields) > 1 && matching(repos, fields[1]) != nil {
 			return matching([]string{"on", "off"}, word), "on|off   include this repository in automatic syncing, or leave it out"
 		}
-		return matching([]string{"on", "off"}, word), hintFor("auto "+fields[1])
+		return matching([]string{"on", "off"}, word), hintFor("auto " + fields[1])
 	}
 
 	subs, hasSubs := subcommands[cmd]

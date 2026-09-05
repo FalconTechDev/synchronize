@@ -90,7 +90,6 @@ func StartWatcherNow() error {
 	return nil
 }
 
-
 // darwin has a single user agent covering both jobs, so the shutdown half
 // follows whatever the login half is set to.
 func EnableShutdown() error  { return nil }

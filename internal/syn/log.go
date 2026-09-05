@@ -14,9 +14,9 @@ import (
 
 var (
 	logMu sync.Mutex
-	
+
 	Quiet bool
-	
+
 	Verbose bool
 )
 
@@ -58,13 +58,13 @@ func Debug(format string, a ...any) { writeLine("DEBUG", fmt.Sprintf(format, a..
 func colorLine(line string) string {
 	switch {
 	case strings.Contains(line, "[ERROR]"):
-		return "\033[31m" + line + "\033[0m" 
+		return "\033[31m" + line + "\033[0m"
 	case strings.Contains(line, "[WARN]"):
-		return "\033[33m" + line + "\033[0m" 
+		return "\033[33m" + line + "\033[0m"
 	case strings.Contains(line, "[INFO]"):
-		return "\033[32m" + line + "\033[0m" 
+		return "\033[32m" + line + "\033[0m"
 	case strings.Contains(line, "[DEBUG]"):
-		return "\033[90m" + line + "\033[0m" 
+		return "\033[90m" + line + "\033[0m"
 	}
 	return line
 }
@@ -75,7 +75,7 @@ func LiveTail(w io.Writer, stop <-chan struct{}) error {
 		return err
 	}
 	if f != nil {
-		
+
 		f.Seek(0, io.SeekEnd)
 	}
 	for {
@@ -87,7 +87,7 @@ func LiveTail(w io.Writer, stop <-chan struct{}) error {
 			return nil
 		case <-time.After(250 * time.Millisecond):
 		}
-		
+
 		if f == nil {
 			f, err = os.Open(LogPath())
 			if err != nil {
