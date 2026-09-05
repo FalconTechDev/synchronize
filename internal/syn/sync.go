@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -127,6 +128,12 @@ type Engine struct {
 	// set by --no-checks and never by the watcher, so an unattended sync
 	// cannot decide on its own to deploy something that failed.
 	SkipChecks bool
+
+	// apps are the programs this process is keeping alive. Only a watcher
+	// fills this in; a one-off command leaves it empty and so cannot
+	// disturb an app a watcher elsewhere is looking after.
+	appMu sync.Mutex
+	apps  map[string]*Supervisor
 }
 
 func NewEngine(cfg *Config) *Engine {
@@ -327,7 +334,8 @@ func (e *Engine) withHooks(r *Repo, op string, run func(*Repo) Result) Result {
 	firePull := res.Pulled > 0 && len(r.Hooks.AfterPull) > 0
 	firePush := op == "push" && res.Pushed > 0 && len(r.Hooks.AfterPush) > 0
 	fireRestart := res.Pulled > 0 && r.Restart != nil && r.Restart.Command != ""
-	if !firePull && !firePush && !fireRestart {
+	fireApp := res.Pulled > 0 && r.App != nil && r.App.Command != ""
+	if !firePull && !firePush && !fireRestart && !fireApp {
 		return res
 	}
 
@@ -357,6 +365,11 @@ func (e *Engine) withHooks(r *Repo, op string, run func(*Repo) Result) Result {
 		if r.Restart.Rollback && anyFailed(runs) {
 			e.rollbackPull(r, before, &res, "restart command")
 		}
+	}
+	// An app syn is keeping alive itself. Last, and only if the pull stands:
+	// there is no sense starting the new code if it has just been undone.
+	if res.OK() && res.Pulled > 0 {
+		e.restartApp(r, pulledPaths)
 	}
 	if firePush {
 		// A failing after-push hook is not rolled back: the commits are on

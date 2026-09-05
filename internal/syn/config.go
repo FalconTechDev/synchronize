@@ -45,6 +45,11 @@ type Repo struct {
 	// to every other machine.
 	PullOnly bool `json:"pull_only,omitempty"`
 
+	// App is a program syn runs out of this repository and restarts when
+	// its code arrives. Restart calls somebody else's service manager; App
+	// is the service manager, for when there is not one.
+	App *AppConfig `json:"app,omitempty"`
+
 	// Restart runs a local command after a pull changed specific files -
 	// restart a bot when bot.py moved, say. The command lives here in
 	// config, never in the repository, so a push cannot retarget it.

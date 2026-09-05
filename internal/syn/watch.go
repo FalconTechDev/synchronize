@@ -113,6 +113,11 @@ func (e *Engine) watchLoop(repos []*Repo, externalStop <-chan struct{}) {
 	e.RunAll(repos, e.Pull)
 	TrayMarkSyncing(false)
 
+	// Apps come up after that first pull, so a machine that has been off
+	// starts the code that is current rather than the code it went down on.
+	e.StartApps(repos)
+	defer e.StopApps()
+
 	type entry struct {
 		repo    *Repo
 		ticker  *time.Ticker

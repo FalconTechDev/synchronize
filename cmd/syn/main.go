@@ -127,8 +127,17 @@ ON A SERVER
                          down and never sends anything up, so logs and caches
                          the running service writes are not published
   deploy                 which repositories are deploy targets
+  app <repo> -- <cmd>    have syn run your program and restart it when the
+                         code arrives: syn app my-bot -- python bot.py
+  app <repo> --watch "bot.py,src/**" -- <cmd>
+                         restart only when those files change
+  app <repo> start       run it here, attached, to try it out
+  app <repo> off         stop running it;  app (no args) lists them
   restart <repo> <files> -- <cmd>   after pull, when these files changed,
-                         run a command on THIS machine (e.g. restart a bot)
+                         run a command on THIS machine and wait for it -
+                         for handing over to a service manager you already
+                         have (systemctl restart ...), not for the program
+                         itself, which would never return
   restart <repo> <files> --systemd <unit>
   restart <repo>         show restart settings;  restart (no args) lists all
   restart <repo> off     disable;  restart <repo> run  try the command now
@@ -197,6 +206,8 @@ func run(args []string) error {
 		"--days":     true,
 		"--pat":      true,
 		"--systemd":  true,
+		"--watch":    true,
+		"--dir":      true,
 		"--path":     true,
 		"--branch":   true,
 		"--interval": true,
@@ -530,6 +541,8 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		return cmdUndo(engine, cfg, arg(0), has("--force"), has("--yes"))
 	case "deploy":
 		return cmdDeploy(cfg, rest)
+	case "app":
+		return cmdApp(cfg, engine, rest, values["--watch"], values["--dir"])
 	case "restart":
 		return cmdRestart(cfg, engine, rest, values["--systemd"], has("--no-rollback"))
 	case "service", "daemon":

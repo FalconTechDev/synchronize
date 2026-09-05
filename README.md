@@ -258,6 +258,36 @@ disk, uncommitted, and `syn push` there explains itself instead of publishing.
 A conflict is still a conflict — being a deploy target does not make it safe
 to throw away an edit somebody made on the server by hand.
 
+### Having syn run the program itself
+
+If the machine already has a service manager, point syn at it — the command
+lives on the server, so a push decides *whether* something runs, never *what*:
+
+```bash
+syn restart my-bot bot.py --systemd my-bot
+```
+
+If it does not — a small box, a bot you just want kept alive — syn can be the
+service manager:
+
+```bash
+syn app my-bot -- python bot.py            # run it, restart it when code arrives
+syn app my-bot --watch "bot.py,src/**" -- python bot.py
+syn app my-bot start                       # try it here, attached, first
+syn app my-bot off
+```
+
+The program runs for as long as the watcher does, so on a server install the
+watcher as a service and systemd looks after syn while syn looks after the
+program. Its output goes into the log beside the sync that restarted it, and
+if it falls over on its own syn brings it back — giving up after five starts
+that die immediately, rather than filling the log forever.
+
+The difference between the two is worth being clear about: `restart` runs a
+command and waits for it, which is right for `systemctl restart` and wrong for
+the program itself, since a bot never returns and would be killed when the
+hook timed out. `app` is for the thing that never returns.
+
 ### Running from boot
 
 `syn auto on` installs a **user** service, which on Linux only runs while its
