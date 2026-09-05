@@ -31,10 +31,27 @@ Each of those is a separate switch. None of them is forced on you.
 
 ## Install
 
-On Windows, take `syn-setup.exe` from the
-[releases](https://github.com/FalconTechDev/synchronize/releases). It installs git if
-you do not have it, puts `syn` on your PATH, and offers to switch on automatic
-syncing.
+Everything is one binary. Take it from the
+[releases](https://github.com/FalconTechDev/synchronize/releases).
+
+**Windows** — run `syn-setup.exe`. It installs git if you do not have it, puts
+`syn` on your PATH, and offers to switch on automatic syncing. No
+administrator rights needed.
+
+**Linux and macOS** — the tarball carries an installer beside the binary:
+
+```sh
+tar xzf syn-linux-amd64.tar.gz
+./install.sh            # into ~/.local/bin, or --system for /usr/local/bin
+```
+
+Then, wherever you are:
+
+```bash
+syn auth login           # connect your GitHub account
+syn repo add owner/name  # clone it and start tracking
+syn auto on              # let it keep up by itself
+```
 
 ### From source
 
@@ -47,26 +64,9 @@ go build -o bin/syn.exe ./cmd/syn/   # Windows
 go build -o bin/syn     ./cmd/syn/   # Linux / macOS
 ```
 
-Put `bin/` on your PATH, then:
-
-```bash
-syn auth login           # connect your GitHub account
-syn repo add owner/name  # clone it and start tracking
-syn auto on
-```
-
-On Linux and macOS a release tarball carries an installer beside the binary:
-
-```sh
-tar xzf syn-linux-amd64.tar.gz
-./install.sh            # into ~/.local/bin, or --system for /usr/local/bin
-```
-
-### Building the installers
-
-The recipes live in [`packaging/`](packaging) and are not needed to build or
-run syn itself. The release workflow runs those same scripts, so what you
-build locally is what ships.
+The installer recipes live in [`packaging/`](packaging); they are not needed to
+build or run syn itself. The release workflow runs those same scripts, so what
+you build locally is what ships.
 
 ---
 
@@ -75,9 +75,6 @@ build locally is what ships.
 Anything that touches a repository needs it named. Pass `all` to mean every
 enabled one — a bare `syn push` will not quietly publish work from a repository
 you were not thinking about.
-
-`syn shell` opens a session that stays until you type `exit`, with completion
-on Tab and a hint under the prompt for whatever the command still expects.
 
 ### Signing in
 
@@ -175,18 +172,32 @@ syn files clear <repo>                  # the whole thing again
 This is git sparse-checkout: what you leave out is removed from your folder
 but stays on the remote, and syn will never commit it as deleted.
 
-### Dashboard
-
-```bash
-syn serve                # http://localhost:7391
-syn serve --addr :8080
-```
-
 ### Checking on it
 
 ```bash
 syn doctor    # git, account, background syncing, and any repository in trouble
 ```
+
+---
+
+## Ways to look at it
+
+Besides the commands, there are three:
+
+**A session that stays open.** `syn shell` keeps a prompt until you type
+`exit`, completing commands and repository names on Tab and showing, under the
+prompt, whatever the command still expects.
+
+**In the tray.** `syn tray` sits by the clock with the current state and
+Pull/Push to hand.
+
+**In a browser.** `syn serve` puts a dashboard on `http://localhost:7391` —
+every repository, what is ahead or behind, and the log as it happens. Take a
+different port with `--addr :8080`.
+
+There is also a desktop application in [`cmd/syn-app`](cmd/syn-app), built with
+[Wails](https://wails.io). It is younger than the rest and not in the releases
+yet; build it with `wails build` from that folder.
 
 ---
 

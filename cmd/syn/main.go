@@ -56,8 +56,10 @@ PART OF A REPOSITORY  (by default the whole thing is synced)
   this folder but stay on the remote, and syn will not commit them as
   deleted. Useful for pulling one folder out of a large repository.
 
-INTERACTIVE
-  shell                  open a session that stays until you type exit
+WAYS TO LOOK AT IT
+  shell                  a session that stays open until you type exit
+  tray                   sit by the clock with pull and push to hand
+  serve [--addr :7391]   dashboard in the browser, with the log as it happens
 
 SYNCING
   pull  <repo|all> [--force]  bring remote changes in  (--force: reset to remote)
@@ -107,7 +109,6 @@ OTHER
   log [n]                last n log lines (default 40)
   log --live             stream the log in real time
   diff <repo|all>         show uncommitted diff
-  serve [--addr :7391]   web dashboard with live log and pull/push buttons
   doctor                 check that everything is wired up
   version                print the version
 
