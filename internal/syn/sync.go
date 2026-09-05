@@ -17,6 +17,12 @@ type Result struct {
 	Pushed    int
 	PulledLog []string
 	PushedLog []string
+
+	// The files behind those commits: what arrived, and what syn committed
+	// on your behalf. Auto-committing your work without saying what went in
+	// is how surprises happen.
+	PulledFiles    []FileChange
+	CommittedFiles []FileChange
 	Backup    string
 	Conflict  *Conflict
 	Err       error
@@ -63,10 +69,25 @@ func (r Result) Detail() string {
 	for _, line := range r.PulledLog {
 		fmt.Fprintf(&b, "\n           down  %s", line)
 	}
+	writeFiles(&b, r.PulledFiles)
 	for _, line := range r.PushedLog {
 		fmt.Fprintf(&b, "\n           up    %s", line)
 	}
+	writeFiles(&b, r.CommittedFiles)
 	return b.String()
+}
+
+// writeFiles lists what actually moved, trimmed so one busy sync cannot
+// bury everything else in the log.
+func writeFiles(b *strings.Builder, files []FileChange) {
+	const max = 12
+	for i, f := range files {
+		if i == max {
+			fmt.Fprintf(b, "\n                 ... and %d more", len(files)-max)
+			break
+		}
+		fmt.Fprintf(b, "\n                 %-9s %s", f.Status, f.Path)
+	}
 }
 
 func plural(n int, word string) string {
@@ -163,22 +184,23 @@ func sanitizeRef(s string) string {
 	return strings.Trim(repl.Replace(s), "-.")
 }
 
-func (e *Engine) autoCommit(r *Repo) (bool, error) {
+func (e *Engine) autoCommit(r *Repo) (bool, []FileChange, error) {
 	dirty, err := IsDirty(r.Path)
 	if err != nil || !dirty {
-		return false, err
+		return false, nil, err
 	}
+	files := ChangedFilesDetailed(r.Path)
 	if _, err := git(r.Path, "add", "-A"); err != nil {
-		return false, err
+		return false, nil, err
 	}
 	msg := strings.NewReplacer(
 		"{host}", hostname(),
 		"{time}", time.Now().Format("2006-01-02 15:04"),
 	).Replace(e.Cfg.CommitTemplate)
 	if _, err := gitCommit(r.Path, msg); err != nil {
-		return false, err
+		return false, nil, err
 	}
-	return true, nil
+	return true, files, nil
 }
 
 func (e *Engine) recordConflict(r *Repo, branch, backupBranch, reason string, files []string) *Conflict {
@@ -320,6 +342,10 @@ func (e *Engine) pull(r *Repo) Result {
 		stashed = true
 	}
 
+	// Remember where we stood, so afterwards we can say which files arrived
+	// rather than only how many commits did.
+	before, _ := CurrentCommit(r.Path)
+
 	conflicted, files, err := e.integrate(r, branch)
 	if err != nil {
 		if stashed {
@@ -336,6 +362,11 @@ func (e *Engine) pull(r *Repo) Result {
 		return res
 	}
 	res.Pulled = behind
+	if before != "" {
+		if now, err := CurrentCommit(r.Path); err == nil {
+			res.PulledFiles = FilesBetween(r.Path, before, now)
+		}
+	}
 
 	if stashed {
 		if _, err := git(r.Path, "stash", "pop"); err != nil {
@@ -366,12 +397,13 @@ func (e *Engine) push(r *Repo) Result {
 	}
 	res.Branch = branch
 
-	committed, err := e.autoCommit(r)
+	committed, files, err := e.autoCommit(r)
 	if err != nil {
 		res.Err = err
 		return res
 	}
 	res.Committed = committed
+	res.CommittedFiles = files
 
 	if _, err := e.gitR(r, "fetch", "--prune", r.Remote); err != nil {
 		res.Err = err

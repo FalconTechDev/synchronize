@@ -123,7 +123,7 @@ func (e *Engine) ForcePull(r *Repo) Result {
 		return res
 	}
 	
-	if committed, err := e.autoCommit(r); err != nil {
+	if committed, _, err := e.autoCommit(r); err != nil {
 		res.Err = err
 		return res
 	} else {
@@ -151,7 +151,7 @@ func (e *Engine) ForcePush(r *Repo) Result {
 	}
 	res.Branch = branch
 	token := e.tokenFor(r)
-	committed, err := e.autoCommit(r)
+	committed, _, err := e.autoCommit(r)
 	if err != nil {
 		res.Err = err
 		return res
@@ -194,7 +194,7 @@ func (e *Engine) RestoreBackup(r *Repo, backupBranch string) error {
 		return fmt.Errorf("no such backup branch: %s", backupBranch)
 	}
 	if dirty, _ := IsDirty(r.Path); dirty {
-		if _, err := e.autoCommit(r); err != nil {
+		if _, _, err := e.autoCommit(r); err != nil {
 			return err
 		}
 	}

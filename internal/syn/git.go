@@ -138,8 +138,8 @@ func ChangedFiles(dir string) ([]string, error) {
 	}
 	var files []string
 	for _, line := range strings.Split(out, "\n") {
-		if len(line) > 3 {
-			files = append(files, strings.TrimSpace(line[3:]))
+		if _, path, ok := splitStatusLine(line); ok {
+			files = append(files, path)
 		}
 	}
 	return files, nil
@@ -240,6 +240,20 @@ func RecentCommits(dir string, limit int) []Commit {
 	return cs
 }
 
+// splitStatusLine reads one porcelain line. It cannot use fixed offsets: the
+// leading space of an unstaged change is trimmed away before we see it, which
+// used to shift every path by one character.
+func splitStatusLine(line string) (code, path string, ok bool) {
+	line = strings.TrimRight(line, " 	")
+	i := strings.IndexByte(line, ' ')
+	if i <= 0 {
+		return "", "", false
+	}
+	code = line[:i]
+	path = strings.TrimSpace(line[i:])
+	return code, path, path != ""
+}
+
 type FileChange struct {
 	Status string `json:"status"`
 	Path   string `json:"path"`
@@ -252,11 +266,10 @@ func ChangedFilesDetailed(dir string) []FileChange {
 	}
 	var fs []FileChange
 	for _, line := range strings.Split(strings.TrimRight(out, "\n"), "\n") {
-		if len(line) < 4 {
+		code, path, ok := splitStatusLine(line)
+		if !ok {
 			continue
 		}
-		code := strings.TrimSpace(line[:2])
-		path := strings.TrimSpace(line[3:])
 		label := "modified"
 		switch {
 		case strings.HasPrefix(code, "??"):
@@ -318,4 +331,35 @@ func CloneWithToken(cloneURL, dest, token string, extraArgs ...string) error {
 	args = append(args, cloneURL, dest)
 	_, err := gitWithToken(".", token, args...)
 	return err
+}
+
+// FilesBetween lists what changed between two commits, so a sync can say
+// which files arrived rather than only how many commits did.
+func FilesBetween(dir, from, to string) []FileChange {
+	out, err := git(dir, "diff", "--name-status", from, to)
+	if err != nil || out == "" {
+		return nil
+	}
+	var fs []FileChange
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		parts := strings.SplitN(line, "\t", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		label := "modified"
+		switch parts[0][:1] {
+		case "A":
+			label = "added"
+		case "D":
+			label = "deleted"
+		case "R":
+			label = "renamed"
+		}
+		fs = append(fs, FileChange{label, strings.TrimSpace(parts[1])})
+	}
+	return fs
+}
+
+func CurrentCommit(dir string) (string, error) {
+	return git(dir, "rev-parse", "HEAD")
 }
