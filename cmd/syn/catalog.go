@@ -26,7 +26,7 @@ var catalog = map[string]cmdInfo{
 	"repo":    {"<add|ls>", "clone from GitHub, or list what is there", "Repositories"},
 	"remove":  {"<repo>", "stop tracking it; the files stay put", "Repositories"},
 	"set":     {"<repo> <name|remote|branch|interval> <value>", "change a repository setting", "Repositories"},
-	"files":   {"<include|exclude|clear> <repo> <glob>", "choose which paths get synced", "Repositories"},
+	"files":   {"<include|exclude|clear> <repo> <glob>", "sync only part of a repository", "Repositories"},
 
 	// Hooks
 	"hook": {"<ls|add|run|clear|timeout>", "run a command after a sync changes something", "Hooks"},
@@ -74,8 +74,8 @@ var subHints = map[string]cmdInfo{
 	"hook run":     {"<repo> <after-pull|after-push|on-conflict>", "try a hook without syncing", ""},
 	"hook clear":   {"<repo> [event]", "remove hooks", ""},
 	"hook timeout": {"<repo> <seconds>", "how long a hook may run", ""},
-	"files include": {"<repo> <glob>", "only sync paths that match", ""},
-	"files exclude": {"<repo> <glob>", "never sync paths that match", ""},
+	"files include": {"<repo> <glob>", "keep only what matches, e.g. src/** or notes.md", ""},
+	"files exclude": {"<repo> <glob>", "keep everything except, e.g. logs/** or *.mp4", ""},
 	"files clear":   {"<repo>", "go back to syncing everything", ""},
 	"auto on":       {"", "turn on all three at once", ""},
 	"auto login":    {"<on|off>", "sync once when you log in", ""},

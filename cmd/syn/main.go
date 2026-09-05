@@ -46,11 +46,15 @@ REPOSITORIES
   set <repo> <k> <v>     change name, remote, branch, interval
                          interval takes minutes or a duration: 30m, 12h, 1d
 
-FILE RULES  (which files to sync; default: everything)
-  files <repo>           show active include/exclude patterns
-  files include <repo> <glob>   only sync matching paths (e.g. "docs/**")
-  files exclude <repo> <glob>   never sync matching paths (e.g. "*.log")
-  files clear <repo>     remove all patterns (back to syncing everything)
+PART OF A REPOSITORY  (by default the whole thing is synced)
+  files <repo>                  show which paths are being synced
+  files include <repo> <glob>   keep only what matches: "src/**", "notes.md"
+  files exclude <repo> <glob>   keep everything except: "logs/**", "*.mp4"
+  files clear <repo>            go back to the whole repository
+
+  This uses git sparse-checkout: the files you leave out are removed from
+  this folder but stay on the remote, and syn will not commit them as
+  deleted. Useful for pulling one folder out of a large repository.
 
 INTERACTIVE
   shell                  open a session that stays until you type exit
@@ -508,7 +512,7 @@ func cmdInit(cfg *syn.Config, path string) error {
 	}
 	url, _ := syn.RemoteURL(root, remote)
 	syn.Info("registered %q -> %s (%s)", name, remote, url)
-	syn.Info("next: `syn install` to sync automatically at startup and shutdown")
+	syn.Info("next: `syn auto on` to keep it in sync by itself")
 	return nil
 }
 
