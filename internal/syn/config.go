@@ -195,7 +195,7 @@ func (c *Config) Selected(key string) ([]*Repo, error) {
 	if key == "all" {
 		out := c.EnabledRepos()
 		if len(out) == 0 {
-			return nil, errors.New("every repository is paused - enable one with `syn enable <repo>`")
+			return nil, errors.New("every repository is paused - bring one back with: syn auto <repo> on")
 		}
 		return out, nil
 	}

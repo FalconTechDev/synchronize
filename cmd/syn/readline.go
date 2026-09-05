@@ -247,6 +247,23 @@ func completeLine(line string, commands, repos []string) ([]string, string) {
 	}
 
 	cmd := fields[0]
+
+	// `auto` takes either a switch name or a repository, so offer both.
+	if cmd == "auto" && idx == 1 {
+		pool := append([]string{"on", "off", "login", "watch", "shutdown"}, repos...)
+		options := matching(pool, word)
+		if word != "" && len(options) == 0 {
+			return nil, "auto takes on, off, login, watch, shutdown, or a repository"
+		}
+		return options, fit("auto: " + strings.Join(pool, "   "))
+	}
+	if cmd == "auto" && idx == 2 {
+		if len(fields) > 1 && matching(repos, fields[1]) != nil {
+			return matching([]string{"on", "off"}, word), "on|off   include this repository in automatic syncing, or leave it out"
+		}
+		return matching([]string{"on", "off"}, word), hintFor("auto "+fields[1])
+	}
+
 	subs, hasSubs := subcommands[cmd]
 
 	if hasSubs && idx == 1 {
@@ -309,7 +326,6 @@ var subcommands = map[string][]string{
 	"hook":   {"ls", "add", "run", "clear", "timeout"},
 	"files":  {"include", "exclude", "clear"},
 	"config": {"set"},
-	"auto": {"on", "off", "login", "watch", "shutdown"},
 }
 
 func matching(pool []string, prefix string) []string {

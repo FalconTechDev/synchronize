@@ -24,8 +24,6 @@ var catalog = map[string]cmdInfo{
 	"list":    {"", "list the repositories syn tracks", "Repositories"},
 	"init":    {"[path]", "track the git repo at path (default: here)", "Repositories"},
 	"repo":    {"<add|ls>", "clone from GitHub, or list what is there", "Repositories"},
-	"enable":  {"<repo>", "include it when you say all", "Repositories"},
-	"disable": {"<repo>", "leave it out when you say all", "Repositories"},
 	"remove":  {"<repo>", "stop tracking it; the files stay put", "Repositories"},
 	"set":     {"<repo> <name|remote|branch|interval> <value>", "change a repository setting", "Repositories"},
 	"files":   {"<include|exclude|clear> <repo> <glob>", "choose which paths get synced", "Repositories"},
@@ -44,7 +42,7 @@ var catalog = map[string]cmdInfo{
 	"config": {"[set <key> <value>]", "show or change the settings", "Account and setup"},
 	"doctor": {"", "check that git, auth and the repos are wired up", "Account and setup"},
 
-	"auto":  {"[login|watch|shutdown] [on|off]", "three switches: sync at login, keep watching, publish at shutdown", "Running in the background"},
+	"auto":  {"[login|watch|shutdown|<repo>] [on|off]", "what syncs by itself: at login, on a timer, at shutdown", "Running in the background"},
 	"start":     {"", "run the installed watcher right now", "Running in the background"},
 
 	// Long running - the shell sends these to a real terminal
@@ -54,6 +52,9 @@ var catalog = map[string]cmdInfo{
 
 	// This session
 	"help":    {"", "show every command", "This session"},
+	"shell":   {"", "a session that stays open until you type exit", "This session"},
+	"enable":  {"<repo>", "same as auto <repo> on", "This session"},
+	"disable": {"<repo>", "same as auto <repo> off", "This session"},
 	"log":     {"[n] [--live]", "recent log lines, or follow them live", "This session"},
 	"clear":   {"", "clear the screen", "This session"},
 	"exit":    {"", "leave the shell", "This session"},

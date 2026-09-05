@@ -93,6 +93,7 @@ AUTOMATIC SYNCING  (three separate switches)
   auto shutdown on|off   publish before the machine goes down, and hold
                          the shutdown until that has finished
   auto on|off            all three at once
+  auto <repo> on|off     leave one repository out, or bring it back
   start                  run the watcher now without waiting for login
 
 OTHER
@@ -719,7 +720,7 @@ func cmdRepo(cfg *syn.Config, creds *syn.Credentials, engine *syn.Engine, rest [
 		if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 			return fmt.Errorf("repository must be owner/repo (e.g. torvalds/linux)")
 		}
-		return cmdRepoAdd(cfg, creds, slug, values)
+		return cmdRepoAdd(cfg, creds, slug, values, has("--force"))
 
 	case "ls", "list":
 		return cmdRepoList(creds)
@@ -766,7 +767,7 @@ func confirmDestination(slug, suggested string) (string, error) {
 	return chosen, nil
 }
 
-func cmdRepoAdd(cfg *syn.Config, creds *syn.Credentials, slug string, values map[string]string) error {
+func cmdRepoAdd(cfg *syn.Config, creds *syn.Credentials, slug string, values map[string]string, force bool) error {
 	token := creds.Token("github.com")
 	gh := syn.NewGitHub(token)
 	parts := strings.SplitN(slug, "/", 2)
@@ -804,16 +805,8 @@ func cmdRepoAdd(cfg *syn.Config, creds *syn.Credentials, slug string, values map
 		interval = n
 	}
 
-	for i := range cfg.Repos {
-		if !strings.EqualFold(cfg.Repos[i].GithubSlug, slug) {
-			continue
-		}
-		if syn.IsRepo(cfg.Repos[i].Path) {
-			return fmt.Errorf("%s is already tracked as %q in %s\n"+
-				"        syncing one repository into two folders would fight over the same branch\n"+
-				"        use that one, or stop tracking it first: syn remove %s",
-				slug, cfg.Repos[i].Name, cfg.Repos[i].Path, cfg.Repos[i].Name)
-		}
+	if err := confirmSecondCopy(cfg, slug, branch, force); err != nil {
+		return err
 	}
 
 	if values["--path"] == "" {
@@ -1325,6 +1318,22 @@ func cmdAuto(cfg *syn.Config, cmd string, rest []string) error {
 		return setAuto(cfg, on, on, on)
 	}
 
+	// `auto <repo> on|off` reads better than a separate enable/disable pair,
+	// and keeps every "should this sync by itself" question in one place.
+	if r := cfg.Find(what); r != nil {
+		on, ok := parseSwitch(value)
+		if !ok {
+			return fmt.Errorf("say `syn auto %s on` or `syn auto %s off`", r.Name, r.Name)
+		}
+		if r.Enabled != on {
+			r.Enabled = on
+			if err := cfg.Save(); err != nil {
+				return err
+			}
+		}
+		return showAuto(cfg)
+	}
+
 	switch what {
 	case "login", "startup":
 		on, ok := parseSwitch(value)
@@ -1452,7 +1461,7 @@ func showAuto(cfg *syn.Config) error {
 	fmt.Println("  All three:      syn auto on|off")
 	fmt.Println("  One at a time:  syn auto login|watch|shutdown on|off")
 	fmt.Println("  How often:      syn auto watch 30m")
-	fmt.Println("  A single repo:  syn disable <repo>   (syn enable <repo> to bring it back)")
+	fmt.Println("  One repo:       syn auto <repo> on|off")
 	return nil
 }
 
