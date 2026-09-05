@@ -17,9 +17,13 @@ func ExePath() (string, error) {
 	return filepath.Abs(p)
 }
 
+// run is for the small OS tools that set autostart up - schtasks, launchctl,
+// systemctl. Their output is quoted straight back at the user when something
+// goes wrong, and on Windows they answer in the console code page, so it goes
+// through the same decoding as a hook's output.
 func run(name string, args ...string) (string, error) {
 	out, err := exec.Command(name, args...).CombinedOutput()
-	return string(out), err
+	return decodeConsole(out), err
 }
 
 // AutostartInstalled reports whether anything at all runs on its own.

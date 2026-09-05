@@ -5,8 +5,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
-	"runtime"
 	"strings"
 	"time"
 )
@@ -79,12 +77,7 @@ func (e *Engine) runHook(r *Repo, info hookInfo, command string, timeout time.Du
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	var cmd *exec.Cmd
-	if runtime.GOOS == "windows" {
-		cmd = exec.CommandContext(ctx, "cmd", "/c", command)
-	} else {
-		cmd = exec.CommandContext(ctx, "sh", "-c", command)
-	}
+	cmd := shellCommand(ctx, command)
 	cmd.Dir = r.Path
 	cmd.Env = hookEnv(r, info)
 	hideConsole(cmd)
@@ -92,7 +85,7 @@ func (e *Engine) runHook(r *Repo, info hookInfo, command string, timeout time.Du
 	out, err := cmd.CombinedOutput()
 	run := HookRun{
 		Command:  command,
-		Output:   tailLines(string(out), 20),
+		Output:   tailLines(decodeConsole(out), 20),
 		Duration: time.Since(start),
 	}
 	if ctx.Err() == context.DeadlineExceeded {
