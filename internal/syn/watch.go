@@ -13,11 +13,33 @@ func (e *Engine) Watch(repos []*Repo) {
 	e.watchLoop(repos, make(chan struct{}))
 }
 
+// WatchWithTray syncs in the background and puts an icon by the clock. The
+// icon is the optional half: if there is no notification area to put it in,
+// or systray cannot start in this session, the watching still has to happen,
+// so the tray failing drops us to a plain watch rather than exiting.
 func (e *Engine) WatchWithTray(repos []*Repo, cfg *Config) {
 	stop := make(chan struct{})
-	go e.watchLoop(repos, stop)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		e.watchLoop(repos, stop)
+	}()
 
-	runTrayWithStop(cfg, e, stop)
+	if waitForTaskbar(3 * time.Minute) {
+		runTrayWithStop(cfg, e, stop)
+	} else {
+		Info("no notification area appeared; watching without a tray icon")
+	}
+
+	// systray.Run comes back either because the user chose Quit - which
+	// closed stop, and the loop is on its way out - or because it could not
+	// start at all. Only in the first case is it time to leave.
+	select {
+	case <-stop:
+	default:
+		Info("tray unavailable; carrying on without it")
+	}
+	<-done
 }
 
 // WatchUntil is the watch loop for a GUI host: it never installs signal

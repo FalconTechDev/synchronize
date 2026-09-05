@@ -2,11 +2,13 @@ package syn
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net/url"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 type GitError struct {
@@ -83,8 +85,45 @@ func gitWithToken(dir, token string, args ...string) (string, error) {
 	return gitEnvRun(dir, extra, args...)
 }
 
+// NetworkTimeout caps git commands that talk to a remote. Git has no timeout
+// of its own: on a network that accepts the connection and then says nothing -
+// a VPN dropping, a captive portal - it waits for ever, and a watcher running
+// in the background waits with it.
+var NetworkTimeout = networkTimeout()
+
+func networkTimeout() time.Duration {
+	if v := os.Getenv("SYN_NETWORK_TIMEOUT"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			return d
+		}
+	}
+	return 2 * time.Minute
+}
+
+func touchesNetwork(args []string) bool {
+	if len(args) == 0 {
+		return false
+	}
+	switch args[0] {
+	case "fetch", "push", "pull", "clone", "ls-remote":
+		return true
+	}
+	return false
+}
+
 func gitEnvRun(dir string, extraEnv []string, args ...string) (string, error) {
-	cmd := exec.Command("git", args...)
+	ctx := context.Background()
+	if touchesNetwork(args) {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, NetworkTimeout)
+		defer cancel()
+	}
+
+	cmd := exec.CommandContext(ctx, "git", args...)
+	// Killing git is not enough: it spawns git-remote-https, which keeps the
+	// output pipes open, and Run would go on waiting for those. WaitDelay
+	// closes them shortly after the context is done.
+	cmd.WaitDelay = 5 * time.Second
 	cmd.Dir = dir
 	env := append(os.Environ(), gitBaseEnv...)
 	env = append(env, extraEnv...)
@@ -94,6 +133,11 @@ func gitEnvRun(dir string, extraEnv []string, args ...string) (string, error) {
 	cmd.Stdout = &out
 	cmd.Stderr = &errb
 	if err := cmd.Run(); err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return "", fmt.Errorf("git %s gave up after %s - no answer from the remote\n"+
+				"        check the network, or a VPN that has dropped",
+				args[0], NetworkTimeout)
+		}
 		return strings.TrimSpace(out.String()), &GitError{Args: args, Stderr: errb.String(), Err: err}
 	}
 	return strings.TrimSpace(out.String()), nil

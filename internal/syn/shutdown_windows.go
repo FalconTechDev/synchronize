@@ -16,6 +16,8 @@ var (
 	procGetConsoleWindow         = kernel32.NewProc("GetConsoleWindow")
 	procSetConsoleCtrlHandler    = kernel32.NewProc("SetConsoleCtrlHandler")
 	procSetProcessShutdownParams = kernel32.NewProc("SetProcessShutdownParameters")
+	procGetConsoleProcessList    = kernel32.NewProc("GetConsoleProcessList")
+	procFindWindow               = user32.NewProc("FindWindowW")
 )
 
 const (

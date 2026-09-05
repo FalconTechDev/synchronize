@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	stdlog "log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -149,4 +150,22 @@ func TailLog(n int) string {
 		lines = lines[len(lines)-n:]
 	}
 	return strings.Join(lines, "\n")
+}
+
+// stdLogSink hands anything the standard library's log package prints to our
+// own log file. Libraries we depend on - systray most of all - report their
+// troubles that way, and unattended those lines land in the console window
+// the watcher is trying to keep out of sight.
+type stdLogSink struct{}
+
+func (stdLogSink) Write(p []byte) (int, error) {
+	writeLine("WARN", strings.TrimSpace(string(p)))
+	return len(p), nil
+}
+
+// CaptureLibraryLogs keeps library chatter in the log file instead of on
+// screen. Only worth doing for the long-running commands.
+func CaptureLibraryLogs() {
+	stdlog.SetFlags(0)
+	stdlog.SetOutput(stdLogSink{})
 }

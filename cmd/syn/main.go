@@ -355,6 +355,7 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		return nil
 
 	case "tray":
+		syn.CaptureLibraryLogs()
 		syn.RunTray(cfg, engine)
 		return nil
 
@@ -399,6 +400,7 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		}
 		// Started by the scheduler there is a console window nobody asked
 		// for; started from a terminal this does nothing.
+		syn.CaptureLibraryLogs()
 		syn.HideConsoleWindow()
 		if has("--no-tray") {
 			engine.Watch(repos)
