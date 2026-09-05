@@ -39,7 +39,7 @@ REPOSITORIES
   repo add <owner/repo> [--path ./dir] [--branch main] [--interval 5]
                          clone from GitHub and register (works with private repos)
   repo ls                list your GitHub repos (requires auth)
-  list                   show registered repositories
+  ls  (or list)          show registered repositories
   remove <repo>          stop tracking a repository (files untouched)
   enable <repo>          include it in --all runs
   disable <repo>         exclude it from --all runs
@@ -227,6 +227,20 @@ func parseMinutes(v string) (int, error) {
 	return int(d.Minutes()), nil
 }
 
+// uniqueName finds a free name near the one asked for. The loop has to move
+// on each turn, otherwise a taken "-2" would spin forever.
+func uniqueName(cfg *syn.Config, base string) string {
+	if cfg.Find(base) == nil {
+		return base
+	}
+	for n := 2; ; n++ {
+		candidate := fmt.Sprintf("%s-%d", base, n)
+		if cfg.Find(candidate) == nil {
+			return candidate
+		}
+	}
+}
+
 func needsGit(cmd string) bool {
 	switch cmd {
 	case "help", "--help", "-h", "version", "--version", "config", "log", "auth":
@@ -331,7 +345,7 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 	case "serve":
 		addr := values["--addr"]
 		return engine.Serve(cfg, addr)
-	case "list":
+	case "list", "ls":
 		return cmdList(cfg)
 	case "remove", "rm":
 		return cmdRemove(cfg, arg(0))
@@ -481,10 +495,7 @@ func cmdInit(cfg *syn.Config, path string) error {
 			remote = "origin"
 		}
 	}
-	name := filepath.Base(root)
-	for cfg.Find(name) != nil {
-		name += "-2"
-	}
+	name := uniqueName(cfg, filepath.Base(root))
 	cfg.Repos = append(cfg.Repos, syn.Repo{
 		Name:    name,
 		Path:    root,
@@ -793,6 +804,18 @@ func cmdRepoAdd(cfg *syn.Config, creds *syn.Credentials, slug string, values map
 		interval = n
 	}
 
+	for i := range cfg.Repos {
+		if !strings.EqualFold(cfg.Repos[i].GithubSlug, slug) {
+			continue
+		}
+		if syn.IsRepo(cfg.Repos[i].Path) {
+			return fmt.Errorf("%s is already tracked as %q in %s\n"+
+				"        syncing one repository into two folders would fight over the same branch\n"+
+				"        use that one, or stop tracking it first: syn remove %s",
+				slug, cfg.Repos[i].Name, cfg.Repos[i].Path, cfg.Repos[i].Name)
+		}
+	}
+
 	if values["--path"] == "" {
 		if chosen, err := confirmDestination(slug, abs); err != nil {
 			return err
@@ -837,10 +860,7 @@ func cmdRepoAdd(cfg *syn.Config, creds *syn.Credentials, slug string, values map
 		syn.Info("cloned to %s", abs)
 	}
 
-	name := repoName
-	for cfg.Find(name) != nil {
-		name = slug + "-2"
-	}
+	name := uniqueName(cfg, repoName)
 
 	repo := syn.Repo{
 		Name:            name,
@@ -1404,11 +1424,35 @@ func showAuto(cfg *syn.Config) error {
 		"the machine may shut down with your work unpublished"))
 	fmt.Println()
 
-	if len(cfg.Repos) > 0 && (login || shutdown) {
-		fmt.Printf("  Covers: %s\n\n", strings.Join(repoNames(), ", "))
+	if len(cfg.Repos) > 0 {
+		width := 0
+		for i := range cfg.Repos {
+			if n := len(cfg.Repos[i].Name); n > width {
+				width = n
+			}
+		}
+		fmt.Println("  Repositories")
+		for i := range cfg.Repos {
+			r := &cfg.Repos[i]
+			var state string
+			switch {
+			case !r.Enabled:
+				state = "paused - left out of automatic syncing"
+			case !login && !shutdown:
+				state = "would be covered, but nothing above is on"
+			case watching:
+				state = "every " + humanMinutes(cfg.IntervalFor(r))
+			default:
+				state = "covered"
+			}
+			fmt.Printf("    %-*s   %s\n", width, r.Name, state)
+		}
+		fmt.Println()
 	}
-	fmt.Println("  syn auto login on|off      syn auto watch on|off|30m")
-	fmt.Println("  syn auto shutdown on|off   syn auto on|off  (all three)")
+	fmt.Println("  All three:      syn auto on|off")
+	fmt.Println("  One at a time:  syn auto login|watch|shutdown on|off")
+	fmt.Println("  How often:      syn auto watch 30m")
+	fmt.Println("  A single repo:  syn disable <repo>   (syn enable <repo> to bring it back)")
 	return nil
 }
 
