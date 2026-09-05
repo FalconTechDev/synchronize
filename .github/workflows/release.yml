@@ -57,7 +57,7 @@ jobs:
         shell: pwsh
         run: |
           # The same script people run locally, so the two cannot drift apart.
-          ./build-installer.ps1 -Version ("${{ github.ref_name }}" -replace '^v','')
+          ./packaging/windows/build.ps1 -Version ("${{ github.ref_name }}" -replace '^v','')
           Copy-Item dist\syn-setup.exe syn-setup.exe
 
       - name: Package (Windows)
@@ -67,7 +67,12 @@ jobs:
 
       - name: Package (Unix)
         if: matrix.goos != 'windows'
-        run: tar czf ${{ matrix.asset_name }} ${{ matrix.binary }}
+        run: |
+          # Ship the installer beside the binary so people are not left to
+          # work out where to put it.
+          cp packaging/unix/install.sh .
+          chmod +x install.sh ${{ matrix.binary }}
+          tar czf ${{ matrix.asset_name }} ${{ matrix.binary }} install.sh
 
       - name: Upload to release
         uses: softprops/action-gh-release@v2

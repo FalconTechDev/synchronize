@@ -55,15 +55,18 @@ syn repo add owner/name  # clone it and start tracking
 syn auto on
 ```
 
-### Building the Windows installer
+On Linux and macOS a release tarball carries an installer beside the binary:
 
-Needs [NSIS](https://nsis.sourceforge.io) — `winget install NSIS.NSIS`. The
-release workflow runs this same script, so what you build locally matches what
-ships:
-
-```powershell
-.\build-installer.ps1 -Version 1.0.3    # writes dist\syn-setup.exe
+```sh
+tar xzf syn-linux-amd64.tar.gz
+./install.sh            # into ~/.local/bin, or --system for /usr/local/bin
 ```
+
+### Building the installers
+
+The recipes live in [`packaging/`](packaging) and are not needed to build or
+run syn itself. The release workflow runs those same scripts, so what you
+build locally is what ships.
 
 ---
 
