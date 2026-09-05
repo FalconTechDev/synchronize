@@ -237,6 +237,71 @@ It takes a backup branch first, like any other rewrite, and a branch name
 means the remote's — `--to main` is the remote's main, not this machine's
 copy of it.
 
+---
+
+## On a server
+
+A server is not a machine you work on, and syncing it both ways is wrong:
+the running service writes logs, caches and an sqlite file into its own
+working tree, and an ordinary sync would commit that lot and push it to every
+machine you actually work on.
+
+So say what the machine is for:
+
+```bash
+syn deploy my-bot on     # changes come down; nothing ever goes up
+syn deploy                # which repositories are deploy targets
+```
+
+After that, a sync pulls and stops. Whatever the service writes stays on that
+disk, uncommitted, and `syn push` there explains itself instead of publishing.
+A conflict is still a conflict — being a deploy target does not make it safe
+to throw away an edit somebody made on the server by hand.
+
+### Running from boot
+
+`syn auto on` installs a **user** service, which on Linux only runs while its
+owner has a session. A server needs one that starts at boot with nobody
+logged in:
+
+```bash
+sudo syn service install --as deploy   # the account that owns the repositories
+syn service status
+journalctl -u synchronize -f
+```
+
+The unit runs as that account, restarts on failure, is given write access to
+its own configuration and the repositories it tracks and nothing else, and
+logs to the journal rather than to a file. `sudo syn service uninstall`
+removes it.
+
+The unit names the folders it may write to, so after adding a repository on a
+server, run `sudo syn service install` again — otherwise the service cannot
+write to the new one.
+
+On Windows there is no separate service to install: the scheduled task
+`syn auto on` creates already runs from boot. For a machine nobody signs in
+to, set that task to run whether the user is signed in or not.
+
+### A deployment, end to end
+
+```bash
+syn repo add me/my-bot --path /srv/my-bot
+syn deploy my-bot on                      # this machine only receives
+syn set my-bot require_checks on          # and only what CI passed
+syn hook add my-bot after-pull --paths "src/**,go.mod"     "systemctl restart my-bot"
+syn hook rollback my-bot on               # if it will not come up, go back
+sudo syn service install --as deploy
+```
+
+Push to `main` from your laptop; when CI goes green the server takes it
+within the interval, restarts the bot, and puts the old version back if the
+restart fails. To pin or undo a release by hand:
+
+```bash
+syn pull my-bot --to v1.4.2
+```
+
 ### Conflicts
 
 ```bash

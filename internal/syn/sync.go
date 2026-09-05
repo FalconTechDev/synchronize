@@ -38,6 +38,7 @@ type Result struct {
 	Err        error
 
 	summaryLogged bool
+	pullOnly      bool
 }
 
 func (r Result) OK() bool { return r.Err == nil && r.Conflict == nil }
@@ -62,6 +63,9 @@ func (r Result) Summary() string {
 			return fmt.Sprintf("%s: already on %s", r.Repo, r.MovedTo)
 		}
 		return fmt.Sprintf("%s: moved to %s", r.Repo, r.MovedTo)
+	}
+	if r.pullOnly {
+		return fmt.Sprintf("%s: deploy target, nothing published", r.Repo)
 	}
 	var parts []string
 	if r.Committed {
@@ -507,7 +511,20 @@ func (e *Engine) pull(r *Repo) Result {
 }
 
 func (e *Engine) Push(r *Repo) Result {
+	if r.PullOnly {
+		return deployTargetResult(r)
+	}
 	return e.withHooks(r, "push", e.push)
+}
+
+// deployTargetResult is what a push against a deploy target comes back with.
+// It is not an error: the shutdown handler and the watcher push everything
+// they are given, and a server would otherwise log a failure every time it
+// stopped. Typed by hand it explains itself instead of quietly doing nothing.
+func deployTargetResult(r *Repo) Result {
+	Info("%s: deploy target - nothing is published from here\n"+
+		"       (undo with:  syn deploy %s off)", r.Name, r.Name)
+	return Result{Repo: r.Name, Remote: r.Remote, Path: r.Path, pullOnly: true}
 }
 
 func (e *Engine) push(r *Repo) Result {
@@ -583,6 +600,12 @@ func (e *Engine) push(r *Repo) Result {
 func (e *Engine) Sync(r *Repo) Result {
 	res := e.Pull(r)
 	if !res.OK() {
+		return res
+	}
+	// A deploy target takes changes and never sends any: whatever the
+	// running service has written into its working tree is its own business
+	// and must not travel to the machines people work on.
+	if r.PullOnly {
 		return res
 	}
 	push := e.Push(r)

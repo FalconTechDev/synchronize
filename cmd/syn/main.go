@@ -122,6 +122,19 @@ AUTOMATIC SYNCING  (three separate switches)
   pause <repo> 2h        the same, but only for a while (off to end it early)
   start                  run the watcher now without waiting for login
 
+ON A SERVER
+  deploy <repo> on|off   a place code is deployed to: syncing brings changes
+                         down and never sends anything up, so logs and caches
+                         the running service writes are not published
+  deploy                 which repositories are deploy targets
+  service install        run the watcher from boot, without anyone logging in
+       --as <user>       the account it runs as (default: the one behind sudo)
+  service status         is it installed, is it running
+  service uninstall      remove it
+
+  Linux only, and needs sudo. On Windows the scheduled task already runs
+  from boot. Logs go to the journal:  journalctl -u synchronize -f
+
 OTHER
   config                 print the current configuration
   config set <k> <v>     backup, push_backup, strategy, interval_minutes,
@@ -175,6 +188,8 @@ func run(args []string) error {
 		"--addr":     true,
 		"--to":       true,
 		"--paths":    true,
+		"--as":       true,
+		"--home":     true,
 	}
 
 	var flags []string
@@ -494,6 +509,10 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		return cmdPath(cfg, arg(0))
 	case "undo":
 		return cmdUndo(engine, cfg, arg(0), has("--force"), has("--yes"))
+	case "deploy":
+		return cmdDeploy(cfg, rest)
+	case "service", "daemon":
+		return cmdService(cfg, rest, values)
 	case "pause":
 		return cmdPause(cfg, rest)
 	case "ignore":

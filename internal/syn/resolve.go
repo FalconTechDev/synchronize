@@ -174,6 +174,9 @@ func (e *Engine) ForcePull(r *Repo) Result {
 }
 
 func (e *Engine) ForcePush(r *Repo) Result {
+	if r.PullOnly {
+		return deployTargetResult(r)
+	}
 	res := Result{Repo: r.Name}
 	branch, err := e.prepare(r)
 	if err != nil {

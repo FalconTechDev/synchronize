@@ -37,6 +37,13 @@ type Repo struct {
 	// what is checked out; this says what syn will not commit for you.
 	RequireStatusCheck bool     `json:"require_status_check,omitempty"`
 	NoCommit           []string `json:"no_commit,omitempty"`
+
+	// PullOnly makes this a place code is deployed to rather than worked
+	// in: syncing brings changes down and never sends anything up. A server
+	// writes into its own working tree all the time - logs, caches, an
+	// sqlite file - and an ordinary sync would commit that lot and push it
+	// to every other machine.
+	PullOnly bool `json:"pull_only,omitempty"`
 }
 
 // SyncsByItself reports whether automatic syncing should touch this one.
