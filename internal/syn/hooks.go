@@ -25,6 +25,19 @@ type hookInfo struct {
 	Commit  string
 	Prev    string
 	Changed []string
+
+	// Label is what to call this in the log. `syn restart` runs on the hook
+	// machinery but was never set up as a hook, so calling it one in the
+	// output sends people looking for a `syn hook` they never added.
+	Label string
+}
+
+// what names the thing being run, for messages.
+func (i hookInfo) what() string {
+	if i.Label != "" {
+		return i.Label
+	}
+	return i.Event + " hook"
 }
 
 func (e *Engine) runHooks(r *Repo, info hookInfo, hooks HookList) []HookRun {
@@ -47,7 +60,11 @@ func (e *Engine) runHooks(r *Repo, info hookInfo, hooks HookList) []HookRun {
 		return nil
 	}
 
-	Info("%s: running %d %s hook(s)", r.Name, len(wanted), event)
+	if info.Label != "" {
+		Info("%s: running the %s", r.Name, info.Label)
+	} else {
+		Info("%s: running %d %s hook(s)", r.Name, len(wanted), event)
+	}
 	timeout := time.Duration(r.Hooks.Timeout()) * time.Second
 
 	var runs []HookRun
@@ -57,14 +74,14 @@ func (e *Engine) runHooks(r *Repo, info hookInfo, hooks HookList) []HookRun {
 		runs = append(runs, run)
 
 		if run.Err != nil {
-			Errorf("%s: hook failed after %s: %s", r.Name, run.Duration.Round(time.Millisecond), cmd)
+			Errorf("%s: %s failed after %s: %s", r.Name, info.what(), run.Duration.Round(time.Millisecond), cmd)
 			for _, line := range run.Output {
 				Errorf("       %s", line)
 			}
 			break
 		}
 
-		Info("%s: hook ok in %s: %s", r.Name, run.Duration.Round(time.Millisecond), cmd)
+		Info("%s: %s ok in %s: %s", r.Name, info.what(), run.Duration.Round(time.Millisecond), cmd)
 		for _, line := range run.Output {
 			Info("       %s", line)
 		}
@@ -149,4 +166,16 @@ func (e *Engine) RunHooksNow(r *Repo, event string) error {
 		}
 	}
 	return nil
+}
+
+// RunRestartNow runs the configured restart command without syncing.
+func (e *Engine) RunRestartNow(r *Repo) []HookRun {
+	if r.Restart == nil || r.Restart.Command == "" {
+		return nil
+	}
+	head, _ := CurrentCommit(r.Path)
+	// Run by hand there is nothing to match paths against, and no paths are
+	// given, so it runs regardless - which is the point of trying it.
+	return e.runHooks(r, hookInfo{Event: "after-pull", Commit: head, Label: "restart command"},
+		HookList{{Run: r.Restart.Command}})
 }

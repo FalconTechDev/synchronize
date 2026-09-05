@@ -44,6 +44,25 @@ type Repo struct {
 	// sqlite file - and an ordinary sync would commit that lot and push it
 	// to every other machine.
 	PullOnly bool `json:"pull_only,omitempty"`
+
+	// Restart runs a local command after a pull changed specific files -
+	// restart a bot when bot.py moved, say. The command lives here in
+	// config, never in the repository, so a push cannot retarget it.
+	Restart *RestartConfig `json:"restart,omitempty"`
+}
+
+// RestartConfig is the server-side "when these files change, run this"
+// setting. Set with `syn restart <repo> bot.py -- systemctl restart my-bot`.
+type RestartConfig struct {
+	Paths    []string `json:"paths"`
+	Command  string   `json:"command"`
+	Rollback bool     `json:"rollback,omitempty"`
+}
+
+// Wants reports whether a pull that touched these files should trigger
+// the restart command.
+func (rc RestartConfig) Wants(changed []string) bool {
+	return Hook{Paths: rc.Paths}.Wants(changed)
 }
 
 // SyncsByItself reports whether automatic syncing should touch this one.

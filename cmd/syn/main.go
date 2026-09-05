@@ -127,6 +127,11 @@ ON A SERVER
                          down and never sends anything up, so logs and caches
                          the running service writes are not published
   deploy                 which repositories are deploy targets
+  restart <repo> <files> -- <cmd>   after pull, when these files changed,
+                         run a command on THIS machine (e.g. restart a bot)
+  restart <repo> <files> --systemd <unit>
+  restart <repo>         show restart settings;  restart (no args) lists all
+  restart <repo> off     disable;  restart <repo> run  try the command now
   service install        run the watcher from boot, without anyone logging in
        --as <user>       the account it runs as (default: the one behind sudo)
   service status         is it installed, is it running
@@ -176,9 +181,22 @@ func run(args []string) error {
 		return nil
 	}
 
+	// `restart` ends in a command line of its own. Everything after `--`
+	// belongs to that command - its flags are not syn's - so it is lifted
+	// out before the parser below can claim any of it.
+	var command []string
+	for i, a := range args {
+		if a == "--" {
+			command = args[i:]
+			args = args[:i]
+			break
+		}
+	}
+
 	valueFlags := map[string]bool{
 		"--days":     true,
 		"--pat":      true,
+		"--systemd":  true,
 		"--path":     true,
 		"--branch":   true,
 		"--interval": true,
@@ -210,6 +228,7 @@ func run(args []string) error {
 			pos = append(pos, a)
 		}
 	}
+	pos = append(pos, command...)
 	has := func(name string) bool {
 		for _, f := range flags {
 			if f == name {
@@ -511,6 +530,8 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		return cmdUndo(engine, cfg, arg(0), has("--force"), has("--yes"))
 	case "deploy":
 		return cmdDeploy(cfg, rest)
+	case "restart":
+		return cmdRestart(cfg, engine, rest, values["--systemd"], has("--no-rollback"))
 	case "service", "daemon":
 		return cmdService(cfg, rest, values)
 	case "pause":

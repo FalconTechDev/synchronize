@@ -289,8 +289,7 @@ to, set that task to run whether the user is signed in or not.
 syn repo add me/my-bot --path /srv/my-bot
 syn deploy my-bot on                      # this machine only receives
 syn set my-bot require_checks on          # and only what CI passed
-syn hook add my-bot after-pull --paths "src/**,go.mod"     "systemctl restart my-bot"
-syn hook rollback my-bot on               # if it will not come up, go back
+syn restart my-bot bot.py --systemd my-bot   # restart when bot.py changes
 sudo syn service install --as deploy
 ```
 

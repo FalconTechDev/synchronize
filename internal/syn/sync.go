@@ -326,7 +326,8 @@ func (e *Engine) withHooks(r *Repo, op string, run func(*Repo) Result) Result {
 
 	firePull := res.Pulled > 0 && len(r.Hooks.AfterPull) > 0
 	firePush := op == "push" && res.Pushed > 0 && len(r.Hooks.AfterPush) > 0
-	if !firePull && !firePush {
+	fireRestart := res.Pulled > 0 && r.Restart != nil && r.Restart.Command != ""
+	if !firePull && !firePush && !fireRestart {
 		return res
 	}
 
@@ -335,10 +336,26 @@ func (e *Engine) withHooks(r *Repo, op string, run func(*Repo) Result) Result {
 	Info("%s", res.Detail())
 	res.summaryLogged = true
 
+	pulledPaths := pathsOf(res.PulledFiles)
+
 	if firePull {
-		runs := e.runHooks(r, e.hookInfoFor(r, "after-pull", before, pathsOf(res.PulledFiles)), r.Hooks.AfterPull)
+		runs := e.runHooks(r, e.hookInfoFor(r, "after-pull", before, pulledPaths), r.Hooks.AfterPull)
 		if r.Hooks.Rollback && anyFailed(runs) {
-			e.rollbackPull(r, before, &res)
+			e.rollbackPull(r, before, &res, "after-pull hook")
+			return res
+		}
+	}
+	// The restart runs after the hooks and only if they left the repository
+	// standing: restarting a service onto code an after-pull hook has just
+	// rolled back would put the old binary next to the new configuration.
+	if fireRestart && res.OK() && r.Restart.Wants(pulledPaths) {
+		info := e.hookInfoFor(r, "after-pull", before, pulledPaths)
+		info.Label = "restart command"
+		// The paths were checked a line ago; passing them again would make
+		// runHooks decide a second time, on the same answer.
+		runs := e.runHooks(r, info, HookList{{Run: r.Restart.Command}})
+		if r.Restart.Rollback && anyFailed(runs) {
+			e.rollbackPull(r, before, &res, "restart command")
 		}
 	}
 	if firePush {
@@ -366,25 +383,25 @@ func anyFailed(runs []HookRun) bool {
 //
 // It refuses when there is anything uncommitted, because a hard reset would
 // throw that away, and the whole point is to lose nothing.
-func (e *Engine) rollbackPull(r *Repo, before string, res *Result) {
+func (e *Engine) rollbackPull(r *Repo, before string, res *Result, what string) {
 	if before == "" {
-		Errorf("%s: hook failed, but there is no commit to go back to", r.Name)
+		Errorf("%s: the %s failed, but there is no commit to go back to", r.Name, what)
 		return
 	}
 	if files, err := ChangedFiles(r.Path); err == nil && len(files) > 0 {
-		Errorf("%s: hook failed, but the working tree has uncommitted changes,\n"+
+		Errorf("%s: the %s failed, but the working tree has uncommitted changes,\n"+
 			"       so the rollback was skipped rather than throw them away.\n"+
 			"       go back by hand when you have saved them:  git reset --hard %s",
-			r.Name, short(before))
+			r.Name, what, short(before))
 		return
 	}
 	if _, err := git(r.Path, "reset", "--hard", before); err != nil {
-		Errorf("%s: hook failed and the rollback failed too: %v", r.Name, err)
+		Errorf("%s: %s failed and the rollback failed too: %v", r.Name, what, err)
 		return
 	}
-	Warn("%s: after-pull hook failed - rolled back to %s", r.Name, short(before))
+	Warn("%s: %s failed - rolled back to %s", r.Name, what, short(before))
 	res.RolledBack = true
-	res.Err = fmt.Errorf("after-pull hook failed; the pull was rolled back to %s", short(before))
+	res.Err = fmt.Errorf("%s failed; the pull was rolled back to %s", what, short(before))
 }
 
 func short(sha string) string {
