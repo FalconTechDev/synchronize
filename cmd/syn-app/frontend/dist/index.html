@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>synchronize</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="titlebar">
+  <div class="tb-left">
+    <img class="logo" src="logo.png" alt="">
+    <span class="tb-name">synchronize</span>
+    <span class="tb-ver" id="ver"></span>
+  </div>
+  <div class="tb-right">
+    <button id="btn-watch" class="btn btn-quiet">
+      <span class="dot" id="watch-dot"></span><span id="watch-label">Idle</span>
+    </button>
+  </div>
+</header>
+
+<!-- ===================================================== sign in ==== -->
+<div id="view-signin" class="signin-view hidden">
+  <div class="signin-card">
+    <img class="signin-logo" src="logo.png" alt="">
+    <h1>Welcome to synchronize</h1>
+    <p class="lead">Keep your repositories in step across every machine you work on.</p>
+
+    <label class="field">
+      <span>GitHub Personal Access Token</span>
+      <input id="pat" type="password" placeholder="ghp_…" spellcheck="false" autocomplete="off">
+    </label>
+    <button id="btn-signin" class="btn btn-primary btn-block">Connect account</button>
+    <p id="signin-err" class="err"></p>
+    <p class="fine">
+      Needs the <code>repo</code> scope.
+      <a href="#" id="lnk-token">Create a token →</a><br>
+      It is stored only on this computer.
+    </p>
+  </div>
+</div>
+
+<!-- ===================================================== main ==== -->
+<div id="view-main" class="shell hidden">
+
+  <aside class="sidebar">
+    <div class="side-head">
+      <span>Repositories</span>
+      <button class="icon-btn" id="btn-add" title="Add repository">+</button>
+    </div>
+    <div class="side-list" id="side-list"></div>
+    <div class="side-foot">
+      <button class="btn btn-block btn-quiet" id="btn-syncall">Sync all</button>
+    </div>
+  </aside>
+
+  <main class="content" id="content">
+    <div class="blank" id="blank">
+      <div class="blank-mark">◈</div>
+      <h2>No repository selected</h2>
+      <p>Pick one on the left, or add your first.</p>
+      <button class="btn btn-primary" id="btn-add-2">Add repository</button>
+    </div>
+
+    <div class="detail hidden" id="detail">
+      <div class="d-head">
+        <div>
+          <h1 id="d-name"></h1>
+          <div class="d-meta">
+            <span id="d-track"></span>
+            <span class="sep">·</span>
+            <span id="d-path" class="path"></span>
+          </div>
+        </div>
+        <div class="d-actions">
+          <button class="btn" id="d-pull">Pull</button>
+          <button class="btn" id="d-push">Push</button>
+          <button class="btn btn-primary" id="d-sync">Sync</button>
+          <button class="icon-btn" id="d-menu" title="More">⋯</button>
+        </div>
+      </div>
+
+      <div id="d-alert" class="alert hidden"></div>
+
+      <div class="stats">
+        <div class="stat" id="s-in">
+          <div class="stat-n">0</div><div class="stat-l">to pull</div>
+        </div>
+        <div class="stat" id="s-out">
+          <div class="stat-n">0</div><div class="stat-l">to push</div>
+        </div>
+        <div class="stat" id="s-dirty">
+          <div class="stat-n">0</div><div class="stat-l">uncommitted</div>
+        </div>
+        <div class="stat wide">
+          <div class="stat-n small" id="s-sync">never</div><div class="stat-l">last synced</div>
+        </div>
+      </div>
+
+      <div class="panels">
+        <section class="panel" id="p-pending">
+          <h3>Pending</h3>
+          <div id="pending-body"></div>
+        </section>
+
+        <section class="panel">
+          <h3>Uncommitted changes <span class="count" id="files-count"></span></h3>
+          <div id="files-body" class="filelist"></div>
+        </section>
+
+        <section class="panel">
+          <h3>Recent commits</h3>
+          <div id="commits-body" class="commits"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ===================================================== log ==== -->
+<footer class="statusbar" id="statusbar">
+  <button class="sb-toggle" id="sb-toggle">
+    <span class="caret" id="sb-caret">▴</span> Activity
+  </button>
+  <span class="sb-last" id="sb-last"></span>
+</footer>
+<div class="logpane hidden" id="logpane"><div id="log" class="log"></div></div>
+
+<!-- ===================================================== add ==== -->
+<div id="modal-add" class="modal hidden">
+  <div class="sheet">
+    <h2>Add a repository</h2>
+    <div class="tabs">
+      <button class="tab active" data-tab="clone">Clone from GitHub</button>
+      <button class="tab" data-tab="local">Existing folder</button>
+    </div>
+
+    <div class="tabpane" id="pane-clone">
+      <label class="field">
+        <span>Repository</span>
+        <select id="gh-list"><option>loading…</option></select>
+      </label>
+      <label class="field">
+        <span>Clone into</span>
+        <div class="row">
+          <input id="clone-dest" placeholder="(your home folder)" spellcheck="false">
+          <button class="btn" id="btn-browse-dest">Browse…</button>
+        </div>
+      </label>
+    </div>
+
+    <div class="tabpane hidden" id="pane-local">
+      <label class="field">
+        <span>Folder (must already be a git repository)</span>
+        <div class="row">
+          <input id="local-path" placeholder="C:\path\to\repo" spellcheck="false">
+          <button class="btn" id="btn-browse">Browse…</button>
+        </div>
+      </label>
+    </div>
+
+    <p id="add-err" class="err"></p>
+    <div class="sheet-actions">
+      <button class="btn btn-quiet" onclick="closeAdd()">Cancel</button>
+      <button class="btn btn-primary" id="btn-add-confirm">Add repository</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================================================== settings ==== -->
+<div id="modal-cfg" class="modal hidden">
+  <div class="sheet">
+    <h2 id="cfg-title">Settings</h2>
+    <label class="field">
+      <span>Sync every</span>
+      <div class="row">
+        <input id="cfg-interval" type="number" min="1" max="1440">
+        <span class="suffix">minutes</span>
+      </div>
+    </label>
+    <label class="check">
+      <input id="cfg-enabled" type="checkbox">
+      <span>Include in automatic syncing</span>
+    </label>
+    <div class="sheet-actions spread">
+      <button class="btn btn-danger" id="cfg-remove">Remove repository</button>
+      <div class="row">
+        <button class="btn btn-quiet" onclick="closeCfg()">Cancel</button>
+        <button class="btn btn-primary" id="cfg-save">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================================================== diff ==== -->
+<div id="modal-diff" class="modal hidden">
+  <div class="sheet sheet-wide">
+    <h2 id="diff-title">Changes</h2>
+    <pre id="diff-body" class="diff"></pre>
+    <div class="sheet-actions">
+      <button class="btn btn-quiet" onclick="closeDiff()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+<script src="app.js"></script>
+</body>
+</html>
