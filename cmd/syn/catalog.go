@@ -16,7 +16,7 @@ var catalog = map[string]cmdInfo{
 	"pull":   {"<repo|all> [--force] [--dry-run]", "bring remote changes in (--force resets to the remote)", "Syncing"},
 	"push":   {"<repo|all> [--force] [--dry-run]", "commit local work and publish it", "Syncing"},
 	"sync":   {"<repo|all> [--dry-run]", "pull, then push", "Syncing"},
-	"undo":   {"<repo> [--force]", "take back syn's last commit, keeping the changes", "Syncing"},
+	"undo":   {"<repo> [--force] [--yes]", "take back syn's last commit, keeping the changes", "Syncing"},
 	"status": {"<repo|all> [--fetch] [--json|--porcelain]", "show what a sync would do", "Syncing"},
 	"diff":   {"<repo|all> [--pushed]", "what is not committed yet; --pushed: what the remote lacks", "Syncing"},
 

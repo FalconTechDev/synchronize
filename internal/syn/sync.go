@@ -286,10 +286,14 @@ func (e *Engine) withHooks(r *Repo, op string, run func(*Repo) Result) Result {
 	}
 	defer lock.Release()
 
+	// Where the repository stood before, so a hook can diff against it or
+	// roll back to it.
+	before, _ := CurrentCommit(r.Path)
+
 	res := run(r)
 
 	if res.Conflict != nil {
-		e.runHooks(r, "on-conflict", r.Hooks.OnConflict)
+		e.runHooks(r, e.hookInfoFor(r, "on-conflict", before, res.Conflict.Files), r.Hooks.OnConflict)
 		return res
 	}
 	if res.Err != nil {
@@ -308,12 +312,26 @@ func (e *Engine) withHooks(r *Repo, op string, run func(*Repo) Result) Result {
 	res.summaryLogged = true
 
 	if firePull {
-		e.runHooks(r, "after-pull", r.Hooks.AfterPull)
+		e.runHooks(r, e.hookInfoFor(r, "after-pull", before, pathsOf(res.PulledFiles)), r.Hooks.AfterPull)
 	}
 	if firePush {
-		e.runHooks(r, "after-push", r.Hooks.AfterPush)
+		e.runHooks(r, e.hookInfoFor(r, "after-push", before, pathsOf(res.CommittedFiles)), r.Hooks.AfterPush)
 	}
 	return res
+}
+
+// hookInfoFor describes the sync that just happened to the hook about to run.
+func (e *Engine) hookInfoFor(r *Repo, event, before string, changed []string) hookInfo {
+	now, _ := CurrentCommit(r.Path)
+	return hookInfo{Event: event, Commit: now, Prev: before, Changed: changed}
+}
+
+func pathsOf(files []FileChange) []string {
+	paths := make([]string, 0, len(files))
+	for _, f := range files {
+		paths = append(paths, f.Path)
+	}
+	return paths
 }
 
 func (e *Engine) Pull(r *Repo) Result {

@@ -27,7 +27,7 @@ func cmdPath(cfg *syn.Config, name string) error {
 
 // cmdUndo takes back the last commit syn made on your behalf. Backups and
 // restore are for conflicts; this is for "it published a draft, put it back".
-func cmdUndo(e *syn.Engine, cfg *syn.Config, name string, force bool) error {
+func cmdUndo(e *syn.Engine, cfg *syn.Config, name string, force, yes bool) error {
 	if name == "" {
 		return fmt.Errorf("which repository?\n%s", repoListHint(cfg))
 	}
@@ -64,7 +64,10 @@ func cmdUndo(e *syn.Engine, cfg *syn.Config, name string, force bool) error {
 	fmt.Println("  Your files are left exactly as they are - only the commit goes.")
 	fmt.Println()
 
-	if !force && !confirm("  Undo it? [y/N] ") {
+	// --force waves through the "this was not syn's commit" guard as well;
+	// --yes only answers the question, so a script still cannot rewrite a
+	// commit it was never meant to touch.
+	if !force && !yes && !confirm("  Undo it? [y/N] ") {
 		return fmt.Errorf("cancelled")
 	}
 	return e.UndoLastCommit(r, pushed)
@@ -233,8 +236,12 @@ func dryRun(e *syn.Engine, repos []*syn.Repo) error {
 	return nil
 }
 
+// confirm asks, and takes silence for a no. With nobody at the keyboard
+// there is no one to ask, so it refuses rather than guessing - the commands
+// that need to work unattended take --yes instead.
 func confirm(prompt string) bool {
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		fmt.Println("  (nothing to answer with - pass --yes to go ahead unattended)")
 		return false
 	}
 	fmt.Print(prompt)

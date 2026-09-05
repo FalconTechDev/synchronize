@@ -18,7 +18,19 @@ type HookRun struct {
 	Err      error
 }
 
-func (e *Engine) runHooks(r *Repo, event string, commands []string) []HookRun {
+// hookInfo is what the hook is told about the sync that woke it. A deploy
+// script wants more than "something changed": which event, which commit it
+// is now on, where it came from, and what actually moved - so it can restart
+// only when the files it cares about did.
+type hookInfo struct {
+	Event   string
+	Commit  string
+	Prev    string
+	Changed []string
+}
+
+func (e *Engine) runHooks(r *Repo, info hookInfo, commands []string) []HookRun {
+	event := info.Event
 	if len(commands) == 0 {
 		return nil
 	}
@@ -28,7 +40,7 @@ func (e *Engine) runHooks(r *Repo, event string, commands []string) []HookRun {
 
 	var runs []HookRun
 	for _, cmd := range commands {
-		run := e.runHook(r, cmd, timeout)
+		run := e.runHook(r, info, cmd, timeout)
 		runs = append(runs, run)
 
 		if run.Err != nil {
@@ -47,7 +59,7 @@ func (e *Engine) runHooks(r *Repo, event string, commands []string) []HookRun {
 	return runs
 }
 
-func (e *Engine) runHook(r *Repo, command string, timeout time.Duration) HookRun {
+func (e *Engine) runHook(r *Repo, info hookInfo, command string, timeout time.Duration) HookRun {
 	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -59,7 +71,7 @@ func (e *Engine) runHook(r *Repo, command string, timeout time.Duration) HookRun
 		cmd = exec.CommandContext(ctx, "sh", "-c", command)
 	}
 	cmd.Dir = r.Path
-	cmd.Env = append(hookEnv(r), "SYN_REPO="+r.Name, "SYN_PATH="+r.Path)
+	cmd.Env = hookEnv(r, info)
 	hideConsole(cmd)
 
 	out, err := cmd.CombinedOutput()
@@ -76,8 +88,19 @@ func (e *Engine) runHook(r *Repo, command string, timeout time.Duration) HookRun
 	return run
 }
 
-func hookEnv(r *Repo) []string {
-	env := os.Environ()
+func hookEnv(r *Repo, info hookInfo) []string {
+	env := append(os.Environ(),
+		"SYN_REPO="+r.Name,
+		"SYN_PATH="+r.Path,
+		"SYN_EVENT="+info.Event,
+		"SYN_COMMIT="+info.Commit,
+		"SYN_PREV_COMMIT="+info.Prev,
+		// One path per line, because a comma is a legal character in a
+		// filename and a newline, in practice, is not. Read it with
+		// something that splits on lines: while read f; do ...; done
+		"SYN_CHANGED_FILES="+strings.Join(info.Changed, "\n"),
+		fmt.Sprintf("SYN_CHANGED_COUNT=%d", len(info.Changed)),
+	)
 	if branch, err := CurrentBranch(r.Path); err == nil {
 		env = append(env, "SYN_BRANCH="+branch)
 	}
@@ -115,7 +138,11 @@ func (e *Engine) RunHooksNow(r *Repo, event string) error {
 	if len(cmds) == 0 {
 		return fmt.Errorf("%s has no %s hooks", r.Name, event)
 	}
-	for _, run := range e.runHooks(r, event, cmds) {
+	// Run by hand there is no sync to describe, so the commit is simply
+	// where the repository stands; nothing changed, and the hook can see
+	// that from SYN_CHANGED_COUNT.
+	head, _ := CurrentCommit(r.Path)
+	for _, run := range e.runHooks(r, hookInfo{Event: event, Commit: head}, cmds) {
 		if run.Err != nil {
 			return fmt.Errorf("hook failed: %s: %w", run.Command, run.Err)
 		}

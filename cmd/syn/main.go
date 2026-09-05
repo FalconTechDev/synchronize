@@ -458,7 +458,7 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 	case "path":
 		return cmdPath(cfg, arg(0))
 	case "undo":
-		return cmdUndo(engine, cfg, arg(0), has("--force"))
+		return cmdUndo(engine, cfg, arg(0), has("--force"), has("--yes"))
 	case "pause":
 		return cmdPause(cfg, rest)
 	case "ignore":

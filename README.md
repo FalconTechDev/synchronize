@@ -113,7 +113,7 @@ syn sync <repo|all>              # pull, then push
 syn status <repo|all> [--fetch]
 syn diff <repo|all>              # what is not committed yet
 syn diff <repo> --pushed         # what this branch has that the remote lacks
-syn undo <repo>                  # take back syn's last commit, keep the changes
+syn undo <repo> [--yes]          # take back syn's last commit, keep the changes
 syn log [n] [--live]
 ```
 
@@ -130,6 +130,10 @@ syn path my-repo             # just the folder, so cd $(syn path my-repo) works
 
 Anything that fails exits non-zero, including a feature that is not finished
 yet, so a script can tell the difference.
+
+Commands that ask before doing something take `--yes`. With nobody at the
+keyboard the question cannot be answered, so unasked they refuse rather than
+guess — `syn undo my-repo --yes` is the way to mean it from a script.
 
 Both directions list the files behind the commits, so an automatic commit
 never happens without telling you what went into it. `diff` counts untracked
@@ -174,10 +178,29 @@ the sync changed something, so a bot is not restarted every ten minutes for
 nothing. Hooks live in `~/.synchronize/config.json` and never travel through
 git — a command can only ever come from the machine that will run it.
 
+The hook is told what happened, so it can decide whether it cares:
+
+| | |
+|---|---|
+| `SYN_EVENT` | `after-pull`, `after-push` or `on-conflict` |
+| `SYN_REPO` / `SYN_PATH` / `SYN_BRANCH` | which repository, where, on what branch |
+| `SYN_COMMIT` / `SYN_PREV_COMMIT` | where it is now, and where it started |
+| `SYN_CHANGED_FILES` | the paths behind that, one per line |
+| `SYN_CHANGED_COUNT` | how many, for the common `if` |
+
+One path per line because a comma is a legal character in a filename:
+
+```sh
+syn hook add my-bot after-pull '
+  echo "$SYN_CHANGED_FILES" | grep -q "^src/" || exit 0
+  systemctl restart my-bot
+'
+```
+
 ### Conflicts
 
 ```bash
-syn resolve <repo>            # replay the conflict into your working tree
+syn resolve <repo>            # you have edited the files; finish and sync
 syn resolve <repo> --ours     # keep your side everywhere
 syn resolve <repo> --theirs   # keep the remote side
 syn resolve <repo> --abort    # give up on the rebase or merge
@@ -283,16 +306,34 @@ syn set my-repo name shorter-name
 2. A **backup branch** `syn/backup/<host>/<branch>/<timestamp>` is taken, so
    your work is safe before anything is rewritten
 3. A **notification** tells you which repository needs you
-4. Nothing is half-merged: the branch is where it was, and syncing stops for
-   that repository until you say what to do
+4. **Syncing stops** for that repository until you say what to do — nothing is
+   decided behind your back, and no half-merge is committed or pushed
 
-Then, when you are ready:
+The branch itself does not move, but your working tree is not left untouched:
+the conflicting files already have git's markers in them, and the index is
+unmerged. That is deliberate — the conflict is in front of you, in the editor
+you were already in, rather than hidden until you ask for it.
+
+```
+<<<<<<< Updated upstream
+what the remote had
+=======
+what you wrote
+>>>>>>> Stashed changes
+```
+
+So the work is: edit, then say you are done.
 
 ```bash
-syn resolve my-repo      # replays it, putting conflict markers in the files
-# edit the files: keep what you want, delete the <<<<<<< ======= >>>>>>> lines
+syn status my-repo       # which files, and where the backup went
+# edit them: keep what you want, delete the <<<<<<< ======= >>>>>>> lines
 syn resolve my-repo      # sees the markers are gone, finishes and syncs
 ```
+
+`resolve` on a repository whose markers are still there tells you so and
+changes nothing, so running it early is safe. If you would rather not edit
+anything, pick a side outright: `--ours` keeps yours, `--theirs` keeps the
+remote, `--abort` walks away from the merge or rebase entirely.
 
 ---
 
