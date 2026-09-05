@@ -418,7 +418,10 @@ func (e *Engine) push(r *Repo) Result {
 		e.markSynced(r)
 		return res
 	}
-	if ahead > 0 {
+	// Only a rebase or merge rewrites anything. Publishing commits that sit
+	// on top of the remote does not, and taking a branch for every one of
+	// those was filling the repository with them.
+	if ahead > 0 && behind > 0 {
 		res.Backup = e.backup(r, branch)
 	}
 	if behind > 0 {
@@ -471,6 +474,32 @@ func (e *Engine) Sync(r *Repo) Result {
 func (e *Engine) markSynced(r *Repo) {
 	e.State.LastSync[r.Name] = time.Now()
 	_ = e.State.Save()
+	e.pruneIfDue(r)
+}
+
+// pruneIfDue clears old safety branches on its own, at most once a day per
+// repository. keep_backup_days was a setting nothing acted on: the branches
+// only went away if someone remembered to run `syn prune`.
+func (e *Engine) pruneIfDue(r *Repo) {
+	if e.Cfg.KeepBackupDays <= 0 {
+		return
+	}
+	if last, ok := e.State.LastPrune[r.Name]; ok && time.Since(last) < 24*time.Hour {
+		return
+	}
+	n, err := e.PruneBackups(r, -1)
+	if err != nil {
+		Debug("%s: could not prune backups: %v", r.Name, err)
+		return
+	}
+	if e.State.LastPrune == nil {
+		e.State.LastPrune = map[string]time.Time{}
+	}
+	e.State.LastPrune[r.Name] = time.Now()
+	_ = e.State.Save()
+	if n > 0 {
+		Info("%s: removed %s older than %d days", r.Name, plural(n, "safety branch"), e.Cfg.KeepBackupDays)
+	}
 }
 
 func (e *Engine) RunAll(repos []*Repo, op func(*Repo) Result) []Result {

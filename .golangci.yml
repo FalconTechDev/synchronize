@@ -1,0 +1,31 @@
+version: "2"
+
+linters:
+  enable:
+    - errcheck      # swallowed errors are how a failed cleanup goes unnoticed
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+
+  settings:
+    errcheck:
+      # Best-effort calls whose failure genuinely does not change what we do.
+      exclude-functions:
+        - (*os.File).Close
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - fmt.Print
+        - fmt.Printf
+        - fmt.Println
+
+  exclusions:
+    presets:
+      - std-error-handling
+    rules:
+      - path: _test\.go
+        linters: [errcheck]
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

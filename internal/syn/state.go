@@ -20,6 +20,9 @@ type Conflict struct {
 type State struct {
 	Conflicts map[string]Conflict  `json:"conflicts"`
 	LastSync  map[string]time.Time `json:"last_sync"`
+
+	// LastPrune keeps the automatic clear-out to once a day per repository.
+	LastPrune map[string]time.Time `json:"last_prune,omitempty"`
 }
 
 func statePath() string { return filepath.Join(Home(), "state.json") }

@@ -92,8 +92,11 @@ func (c *Config) IntervalFor(r *Repo) int {
 
 func DefaultConfig() *Config {
 	return &Config{
-		Backup:          true,
-		PushBackup:      true,
+		Backup: true,
+		// Safety branches stay on this machine. Pushing every one of them
+		// turns the branch list on GitHub into a wall of syn/backup/... for
+		// something only this machine will ever need to read.
+		PushBackup:      false,
 		Strategy:        "rebase",
 		IntervalMinutes: 10,
 		Notify:          "conflict",

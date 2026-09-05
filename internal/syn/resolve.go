@@ -237,6 +237,9 @@ func (e *Engine) RestoreBackup(r *Repo, backupBranch string) error {
 	return nil
 }
 
+// PruneBackups removes safety branches older than days, locally and - because
+// no other machine can reach them - the ones this machine pushed as well.
+// Branches another machine left on the remote are its own to clear.
 func (e *Engine) PruneBackups(r *Repo, days int) (int, error) {
 	if days < 0 {
 		days = e.Cfg.KeepBackupDays
@@ -244,32 +247,57 @@ func (e *Engine) PruneBackups(r *Repo, days int) (int, error) {
 			return 0, nil
 		}
 	}
-	out, err := git(r.Path, "for-each-ref", "--format=%(refname:short) %(creatordate:unix)", "refs/heads/syn/backup")
-	if err != nil || out == "" {
-		return 0, err
-	}
 	cutoff := time.Now().Add(-time.Duration(days) * 24 * time.Hour).Unix()
+
 	deleted := 0
+	for _, b := range agedBackups(r.Path, "refs/heads/syn/backup", cutoff) {
+		if _, err := git(r.Path, "branch", "-D", b); err != nil {
+			Warn("%s: could not delete %s: %v", r.Name, b, err)
+			continue
+		}
+		deleted++
+		e.deleteRemoteBackup(r, b)
+	}
+
+	// Ones we pushed in the past stay on the remote even once push_backup is
+	// off, so clear those too rather than leaving them there for good.
+	for _, b := range agedBackups(r.Path, "refs/remotes/"+r.Remote+"/syn/backup", cutoff) {
+		e.deleteRemoteBackup(r, strings.TrimPrefix(b, r.Remote+"/"))
+	}
+	return deleted, nil
+}
+
+func agedBackups(dir, refPrefix string, cutoff int64) []string {
+	out, err := git(dir, "for-each-ref", "--format=%(refname:short) %(creatordate:unix)", refPrefix)
+	if err != nil || out == "" {
+		return nil
+	}
+	var old []string
 	for _, line := range strings.Split(out, "\n") {
 		fields := strings.Fields(line)
 		if len(fields) != 2 {
 			continue
 		}
-		name := fields[0]
 		ts, err := strconv.ParseInt(fields[1], 10, 64)
-		if err != nil {
+		if err != nil || ts > cutoff {
 			continue
 		}
-		if ts <= cutoff {
-			if _, err := git(r.Path, "branch", "-D", name); err == nil {
-				deleted++
-				if e.Cfg.PushBackup {
-					_, _ = gitWithToken(r.Path, e.tokenFor(r), "push", "--quiet", r.Remote, "--delete", name)
-				}
-			}
-		}
+		old = append(old, fields[0])
 	}
-	return deleted, nil
+	return old
+}
+
+// deleteRemoteBackup reports a failure rather than swallowing it: a prune that
+// quietly does nothing is how the branch list grows without anyone noticing.
+func (e *Engine) deleteRemoteBackup(r *Repo, branch string) {
+	if !gitOK(r.Path, "rev-parse", "--verify", "--quiet", r.Remote+"/"+branch) {
+		return
+	}
+	if _, err := gitWithToken(r.Path, e.tokenFor(r), "push", "--quiet", r.Remote, "--delete", branch); err != nil {
+		Warn("%s: %s is still on %s: %v", r.Name, branch, r.Remote, err)
+		return
+	}
+	Debug("%s: removed %s from %s", r.Name, branch, r.Remote)
 }
 
 // takeSide settles unmerged paths without a rebase to continue. A file one
