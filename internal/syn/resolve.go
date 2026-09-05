@@ -41,7 +41,23 @@ func (e *Engine) Resolve(r *Repo, mode string) Result {
 		return res
 	}
 	if files := ConflictedFiles(r.Path); len(files) > 0 {
-		res.Err = fmt.Errorf("unresolved conflicts remain: %s", strings.Join(files, ", "))
+		// A stash that would not go back leaves files unmerged with no rebase
+		// to continue, so --ours and --theirs have to settle them here - the
+		// replay below would never be reached.
+		if mode == "ours" || mode == "theirs" {
+			if err := e.takeSide(r, files, mode); err != nil {
+				res.Err = err
+				return res
+			}
+			Info("%s: kept the %s side of %s", r.Name,
+				pickText(mode == "ours", "local", "remote"), strings.Join(files, ", "))
+			e.clearConflict(r.Name)
+			return e.Sync(r)
+		}
+		res.Err = fmt.Errorf("unresolved conflicts remain: %s\n"+
+			"        fix the markers in those files, then run `syn resolve %s` again\n"+
+			"        or pick a side outright: syn resolve %s --ours | --theirs",
+			strings.Join(files, ", "), r.Name, r.Name)
 		return res
 	}
 	if op == "" {
@@ -239,4 +255,41 @@ func (e *Engine) PruneBackups(r *Repo, days int) (int, error) {
 		}
 	}
 	return deleted, nil
+}
+
+// takeSide settles unmerged paths without a rebase to continue. A file one
+// side deleted has no version to check out, so it is added or removed
+// instead of being restored.
+func (e *Engine) takeSide(r *Repo, files []string, mode string) error {
+	// Reaching here means a stash would not go back on, and in that conflict
+	// git's sides are the other way round: stage 2 holds what we just pulled,
+	// stage 3 the edit that was set aside. So "keep mine" is git's --theirs.
+	flag := "--theirs"
+	if mode == "theirs" {
+		flag = "--ours"
+	}
+	for _, f := range files {
+		if _, err := git(r.Path, "checkout", flag, "--", f); err != nil {
+			if mode == "ours" {
+				_, err = git(r.Path, "add", "--", f)
+			} else {
+				_, err = git(r.Path, "rm", "--force", "--quiet", "--", f)
+			}
+			if err != nil {
+				return fmt.Errorf("could not settle %s: %w", f, err)
+			}
+			continue
+		}
+		if _, err := git(r.Path, "add", "--", f); err != nil {
+			return fmt.Errorf("could not settle %s: %w", f, err)
+		}
+	}
+	return nil
+}
+
+func pickText(cond bool, yes, no string) string {
+	if cond {
+		return yes
+	}
+	return no
 }
