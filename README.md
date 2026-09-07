@@ -16,6 +16,10 @@ git client and the commits look like commits. It does push safety branches
 under `syn/backup/` before rewriting anything, so the branch list is busier
 than a hand-tended repository; `syn prune` clears the old ones.
 
+There is a fuller walkthrough in **[GUIDE.md](GUIDE.md)** — every command by
+task, the deployment setup end to end, the security model, and an honest list
+of the things that will surprise you.
+
 ---
 
 ## What it does
