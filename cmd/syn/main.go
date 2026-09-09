@@ -429,7 +429,11 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		return nil
 
 	case "tray":
+		if syn.DetachIfWindowed() {
+			return nil
+		}
 		syn.CaptureLibraryLogs()
+		syn.HideConsoleWindow()
 		syn.RunTray(cfg, engine)
 		return nil
 
@@ -479,7 +483,11 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 			return err
 		}
 		// Started by the scheduler there is a console window nobody asked
-		// for; started from a terminal this does nothing.
+		// for. Relaunch without one and let this copy go; started from a
+		// terminal both of these do nothing.
+		if syn.DetachIfWindowed() {
+			return nil
+		}
 		syn.CaptureLibraryLogs()
 		syn.HideConsoleWindow()
 		if has("--no-tray") {
