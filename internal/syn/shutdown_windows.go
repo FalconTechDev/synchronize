@@ -37,7 +37,7 @@ var (
 // reason appears on the "these apps are preventing shutdown" screen, so the
 // wait is explained rather than mysterious.
 func HoldShutdown(reason string) {
-	hwnd, _, _ := procGetConsoleWindow.Call()
+	hwnd := blockWindow()
 	if hwnd == 0 {
 		return
 	}
@@ -49,7 +49,7 @@ func HoldShutdown(reason string) {
 }
 
 func ReleaseShutdown() {
-	hwnd, _, _ := procGetConsoleWindow.Call()
+	hwnd := blockWindow()
 	if hwnd == 0 {
 		return
 	}
@@ -66,12 +66,17 @@ func OnShutdown(fn func()) {
 		// Be among the last to go, so the repositories are still reachable.
 		procSetProcessShutdownParams.Call(0x100, 0)
 
+		// Two ways of hearing the same news. The console handler is the
+		// only one available to a program someone ran in a terminal; the
+		// hidden window is the only one available to the autostart build,
+		// which has no console at all. Whichever arrives first does the
+		// work, and the other finds nothing left to do.
+		startShutdownWindow()
+
 		cb := syscall.NewCallback(func(event uint32) uintptr {
 			switch event {
 			case ctrlCloseEvent, ctrlLogoffEvent, ctrlShutdownEvent:
-				if onShutdown != nil {
-					onShutdown()
-				}
+				runShutdownHandler()
 				return 1
 			}
 			return 0

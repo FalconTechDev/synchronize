@@ -141,9 +141,13 @@ Section "!${APPNAME} (required)" SecCore
 
   DetailPrint "Closing any running syn processes..."
   nsExec::Exec 'taskkill /F /IM syn.exe'
+  nsExec::Exec 'taskkill /F /IM synw.exe'
   Pop $0
 
   File "..\..\bin\syn.exe"
+  ; The windowless twin that the scheduled tasks run. Without it, autostart
+  ; falls back to syn.exe and opens a console window at every login.
+  File "..\..\bin\synw.exe"
 
   CreateDirectory "$PROFILE\.synchronize"
   SetOutPath "$PROFILE\.synchronize"
@@ -260,9 +264,11 @@ Section "Uninstall"
   nsExec::Exec '"$INSTDIR\syn.exe" auto off --quiet'
   Pop $0
   nsExec::Exec 'taskkill /F /IM syn.exe'
+  nsExec::Exec 'taskkill /F /IM synw.exe'
   Pop $0
 
   Delete "$INSTDIR\syn.exe"
+  Delete "$INSTDIR\synw.exe"
   Delete "$INSTDIR\uninstall.exe"
   RMDir  "$INSTDIR"
 

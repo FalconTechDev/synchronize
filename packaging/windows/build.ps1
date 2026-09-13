@@ -23,9 +23,17 @@ if (-not $makensis) {
 Write-Host "Building synchronize installer $Version" -ForegroundColor Cyan
 Write-Host ""
 
-Write-Host "  [1/2] building syn.exe"
+Write-Host "  [1/2] building syn.exe and synw.exe (windowless)"
 & go build -ldflags="-s -w -X main.Version=v$Version" -o (Join-Path $root 'bin\syn.exe') ./cmd/syn/
 if ($LASTEXITCODE -ne 0) { throw "syn.exe build failed" }
+
+# The same program linked for the GUI subsystem. Autostart runs this one:
+# Windows hands every console program a console before any of its code runs,
+# and on Windows 11 that is a Terminal window on screen which nothing in the
+# program can take back. No console is created for a GUI-subsystem binary,
+# so there is nothing to hide.
+& go build -ldflags="-s -w -H windowsgui -X main.Version=v$Version" -o (Join-Path $root 'bin\synw.exe') ./cmd/syn/
+if ($LASTEXITCODE -ne 0) { throw "synw.exe build failed" }
 
 Write-Host "  [2/2] compiling installer"
 New-Item -ItemType Directory -Force -Path (Join-Path $root 'dist') | Out-Null

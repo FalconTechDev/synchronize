@@ -93,7 +93,7 @@ func registerTask(name, desc, trigger, exe, args string) error {
 // the other publishes when the machine goes down. Whether the login task
 // keeps watching on a timer, or syncs once and exits, is a third choice.
 func EnableLogin(keepWatching bool) error {
-	exe, err := ExePath()
+	exe, err := autostartExe()
 	if err != nil {
 		return err
 	}
@@ -111,7 +111,7 @@ func EnableLogin(keepWatching bool) error {
 func DisableLogin() error { return removeTask(taskWatch) }
 
 func EnableShutdown() error {
-	exe, err := ExePath()
+	exe, err := autostartExe()
 	if err != nil {
 		return err
 	}
@@ -160,4 +160,29 @@ func StartWatcherNow() error {
 		return fmt.Errorf("%s", strings.TrimSpace(out))
 	}
 	return nil
+}
+
+// autostartExe is the binary the scheduler should run.
+//
+// syn.exe is a console program, so Windows gives it a console before any of
+// our code runs - and on Windows 11, where the default host is Windows
+// Terminal, that means a window on screen that we cannot take back. The
+// Hidden flag in the task definition does not help: it hides the task in the
+// scheduler's list, not the window.
+//
+// synw.exe is the same program linked for the GUI subsystem, so no console is
+// ever created for it and there is nothing to hide. It is installed beside
+// syn.exe; if it is missing - a build from source, say - fall back rather
+// than refuse to set autostart up at all.
+func autostartExe() (string, error) {
+	exe, err := ExePath()
+	if err != nil {
+		return "", err
+	}
+	windowless := filepath.Join(filepath.Dir(exe), "synw.exe")
+	if _, err := os.Stat(windowless); err == nil {
+		return windowless, nil
+	}
+	Debug("synw.exe not found beside %s; autostart will show a console window", exe)
+	return exe, nil
 }
