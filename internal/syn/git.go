@@ -119,6 +119,13 @@ func gitEnvRun(dir string, extraEnv []string, args ...string) (string, error) {
 		defer cancel()
 	}
 
+	// core.quotepath=false makes git print paths as they are. Left on - and
+	// it is on by default - anything outside ASCII comes back as C-style
+	// octal escapes and anything with a space comes back in quotes, so a
+	// Russian filename reaches the log as Ð¸..., a hook's --paths
+	// never matches it, and `syn ignore` cannot hold it back either.
+	args = append([]string{"-c", "core.quotepath=false"}, args...)
+
 	cmd := exec.CommandContext(ctx, "git", args...)
 	// Killing git is not enough: it spawns git-remote-https, which keeps the
 	// output pipes open, and Run would go on waiting for those. WaitDelay
@@ -292,7 +299,7 @@ func splitStatusLine(line string) (code, path string, ok bool) {
 		return "", "", false
 	}
 	code = line[:i]
-	path = strings.TrimSpace(line[i:])
+	path = unquotePath(strings.TrimSpace(line[i:]))
 	return code, path, path != ""
 }
 
@@ -429,7 +436,7 @@ func FilesBetween(dir, from, to string) []FileChange {
 		case "R":
 			label = "renamed"
 		}
-		fs = append(fs, FileChange{label, strings.TrimSpace(parts[1])})
+		fs = append(fs, FileChange{label, unquotePath(strings.TrimSpace(parts[1]))})
 	}
 	return fs
 }
@@ -445,4 +452,61 @@ func RevParse(dir, ref string) (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(out), nil
+}
+
+// unquotePath turns git's quoted form of a path back into the path.
+//
+// git wraps a path in quotes and escapes it whenever it holds a space, a
+// quote, a backslash or a control character - and, unless core.quotepath is
+// off, anything outside ASCII as well. Left as-is, "my file.txt" is not the
+// name of any file, so a hook's --paths never matches it, `syn ignore` cannot
+// hold it back, and the log shows something nobody can copy.
+func unquotePath(s string) string {
+	if len(s) < 2 || s[0] != '"' || s[len(s)-1] != '"' {
+		return s
+	}
+	body := s[1 : len(s)-1]
+
+	// Bytes, not runes: an escaped UTF-8 character arrives as several octal
+	// escapes, one per byte, and only reassembles correctly byte by byte.
+	out := make([]byte, 0, len(body))
+	for i := 0; i < len(body); i++ {
+		if body[i] != '\\' || i+1 >= len(body) {
+			out = append(out, body[i])
+			continue
+		}
+		i++
+		switch c := body[i]; c {
+		case 'n':
+			out = append(out, '\n')
+		case 't':
+			out = append(out, '\t')
+		case 'r':
+			out = append(out, '\r')
+		case 'a':
+			out = append(out, 0x07)
+		case 'b':
+			out = append(out, 0x08)
+		case 'f':
+			out = append(out, 0x0c)
+		case 'v':
+			out = append(out, 0x0b)
+		case '"', '\\':
+			out = append(out, c)
+		default:
+			if c >= '0' && c <= '7' && i+2 < len(body) {
+				n := 0
+				digits := 0
+				for ; digits < 3 && i < len(body) && body[i] >= '0' && body[i] <= '7'; digits++ {
+					n = n*8 + int(body[i]-'0')
+					i++
+				}
+				i-- // the loop above overshoots by one
+				out = append(out, byte(n))
+				continue
+			}
+			out = append(out, c)
+		}
+	}
+	return string(out)
 }

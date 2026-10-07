@@ -38,6 +38,10 @@ type Repo struct {
 	RequireStatusCheck bool     `json:"require_status_check,omitempty"`
 	NoCommit           []string `json:"no_commit,omitempty"`
 
+	// unknown keeps settings written by another version of syn, so saving
+	// from an older copy does not quietly drop them.
+	unknown extras
+
 	// PullOnly makes this a place code is deployed to rather than worked
 	// in: syncing brings changes down and never sends anything up. A server
 	// writes into its own working tree all the time - logs, caches, an
@@ -135,6 +139,10 @@ type Telegram struct {
 }
 
 type Config struct {
+	// unknown keeps settings written by another version of syn, so saving
+	// from an older copy does not quietly drop them.
+	unknown extras
+
 	Repos           []Repo   `json:"repos"`
 	Telegram        Telegram `json:"telegram"`
 	Backup          bool     `json:"backup"`
