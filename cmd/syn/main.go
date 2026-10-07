@@ -729,6 +729,10 @@ func cmdRemove(cfg *syn.Config, key string) error {
 	if err := cfg.Save(); err != nil {
 		return err
 	}
+	// Take the recorded state with it. A conflict left behind would attach
+	// itself to whatever is registered under that name next, and syncing
+	// refuses to run while one is on record.
+	syn.ForgetRepoState(target.Name)
 	syn.Info("stopped tracking %q (files untouched)", key)
 	return nil
 }
@@ -753,6 +757,9 @@ func cmdSet(cfg *syn.Config, key, field, value string) error {
 	}
 	switch field {
 	case "name":
+		// The record is kept under the name, so move it rather than leave
+		// a conflict behind under the old one.
+		syn.RenameRepoState(r.Name, value)
 		r.Name = value
 	case "remote":
 		r.Remote = value
