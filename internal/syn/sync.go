@@ -223,6 +223,21 @@ func (e *Engine) autoCommit(r *Repo) (bool, []FileChange, error) {
 	}
 	files := ChangedFilesDetailed(r.Path)
 
+	// Never commit a half-finished merge, whatever syn does or does not
+	// remember about it. The conflict record can be lost - a wiped state
+	// file, a merge somebody did by hand - and the markers would then be
+	// committed as though they were ordinary text.
+	paths := make([]string, 0, len(files))
+	for _, f := range files {
+		paths = append(paths, f.Path)
+	}
+	if left := withMarkers(r.Path, paths); len(left) > 0 {
+		return false, nil, fmt.Errorf("conflict markers are still in: %s\n"+
+			"        nothing was committed. edit those files - keep what you want\n"+
+			"        and delete the <<<<<<< ======= >>>>>>> lines - then:  syn resolve %s",
+			strings.Join(left, ", "), r.Name)
+	}
+
 	// Anything held back stays on disk and out of the commit. `add -A` would
 	// otherwise sweep in the very files you asked it not to.
 	kept, held := splitHeldBack(files, r.NoCommit)
@@ -308,6 +323,16 @@ func (e *Engine) integrate(r *Repo, branch string) (conflicted bool, files []str
 // ~/.synchronize/config.json - never inside the repository - so a command can
 // only ever come from this machine, not from whoever pushed last.
 func (e *Engine) withHooks(r *Repo, op string, run func(*Repo) Result) Result {
+	return e.runWithHooks(r, op, false, run)
+}
+
+// withHooksAllowingConflict is for the operations that are themselves a way
+// out of a conflict, and so must not be stopped by one.
+func (e *Engine) withHooksAllowingConflict(r *Repo, op string, run func(*Repo) Result) Result {
+	return e.runWithHooks(r, op, true, run)
+}
+
+func (e *Engine) runWithHooks(r *Repo, op string, allowConflict bool, run func(*Repo) Result) Result {
 	// One repository, one worker. The watcher, the login task and whatever
 	// you type can all arrive at the same working tree at once; two rebases
 	// in it leave a state neither of them can finish.
@@ -316,6 +341,16 @@ func (e *Engine) withHooks(r *Repo, op string, run func(*Repo) Result) Result {
 		return Result{Repo: r.Name, Err: err}
 	}
 	defer lock.Release()
+
+	// A repository with an unresolved conflict is left alone. Carrying on
+	// would commit the conflict markers sitting in the working tree and push
+	// them to every other machine - the opposite of what stopping on a
+	// conflict is for. --force and `syn resolve` are the ways out, and
+	// neither comes through here.
+	if c, stuck := e.State.Conflicts[r.Name]; stuck && !allowConflict {
+		return Result{Repo: r.Name, Remote: r.Remote, Path: r.Path,
+			Err: conflictStillOpen(r, c)}
+	}
 
 	// Where the repository stood before, so a hook can diff against it or
 	// roll back to it.
@@ -762,4 +797,24 @@ func UnknownPlaceholders(template string) []string {
 		}
 		template = template[i+j+1:]
 	}
+}
+
+// conflictStillOpen explains why nothing happened, and how to get moving
+// again. It says when the conflict was found, because "it stopped syncing
+// days ago and I did not notice" is the failure this guards against.
+func conflictStillOpen(r *Repo, c Conflict) error {
+	return fmt.Errorf("a conflict from %s is still open, so syncing is on hold\n"+
+		"        files: %s\n"+
+		"        edit them, then:  syn resolve %s\n"+
+		"        or pick a side:   syn resolve %s --ours | --theirs\n"+
+		"        your work before the conflict is on %s",
+		c.At.Format("2006-01-02 15:04"), strings.Join(c.Files, ", "),
+		r.Name, r.Name, orNone(c.BackupBranch))
+}
+
+func orNone(s string) string {
+	if s == "" {
+		return "(no backup branch was taken)"
+	}
+	return s
 }

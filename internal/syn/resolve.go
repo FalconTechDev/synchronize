@@ -92,6 +92,10 @@ func (e *Engine) Resolve(r *Repo, mode string) Result {
 			}
 		}
 	}
+	// Reaching here means nothing is conflicted any more: no operation in
+	// progress, no unmerged files, nothing left to replay. The record is
+	// stale, and syncing now refuses to run while one is open, so drop it.
+	e.clearConflict(r.Name)
 	return e.Sync(r)
 }
 
@@ -386,7 +390,10 @@ func (e *Engine) dropAutoStash(r *Repo) {
 // backup branch taken before anything moves.
 func (e *Engine) PullTo(ref string) func(*Repo) Result {
 	return func(r *Repo) Result {
-		return e.withHooks(r, "pull", func(r *Repo) Result { return e.pullTo(r, ref) })
+		// Allowed through an open conflict on purpose: moving to a known
+		// good release is one of the ways out of one, and it resets hard
+		// after taking a backup, so the markers go with it.
+		return e.withHooksAllowingConflict(r, "pull", func(r *Repo) Result { return e.pullTo(r, ref) })
 	}
 }
 

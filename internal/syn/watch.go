@@ -104,18 +104,18 @@ func (e *Engine) watchLoop(repos []*Repo, externalStop <-chan struct{}) {
 			HoldShutdown("synchronize is publishing your work")
 			defer ReleaseShutdown()
 			Info("shutdown requested: publishing before the machine goes down")
-			e.RunAll(repos, e.Push)
+			e.RunAll(autoTargets(repos), e.Push)
 			Info("everything published - letting the shutdown continue")
 		})
 	})
 
 	TrayMarkSyncing(true)
-	e.RunAll(repos, e.Pull)
+	e.RunAll(autoTargets(repos), e.Pull)
 	TrayMarkSyncing(false)
 
 	// Apps come up after that first pull, so a machine that has been off
 	// starts the code that is current rather than the code it went down on.
-	e.StartApps(repos)
+	e.StartApps(autoTargets(repos))
 	defer e.StopApps()
 
 	type entry struct {
@@ -141,14 +141,14 @@ func (e *Engine) watchLoop(repos []*Repo, externalStop <-chan struct{}) {
 		case sig := <-sigStop:
 			Info("watcher stopping (%s): pushing local work first", sig)
 			TrayMarkSyncing(true)
-			e.RunAll(repos, e.Push)
+			e.RunAll(autoTargets(repos), e.Push)
 			TrayMarkSyncing(false)
 			Info("watcher stopped")
 			return
 		case <-externalStop:
 			Info("watcher stopping (tray quit): pushing local work first")
 			TrayMarkSyncing(true)
-			e.RunAll(repos, e.Push)
+			e.RunAll(autoTargets(repos), e.Push)
 			TrayMarkSyncing(false)
 			Info("watcher stopped")
 			return
@@ -159,6 +159,13 @@ func (e *Engine) watchLoop(repos []*Repo, externalStop <-chan struct{}) {
 		for _, en := range entries {
 			select {
 			case <-en.channel:
+				// Ask the config again rather than trust the copy read at
+				// startup: the pause may have been typed a minute ago.
+				e.reloadAutoState([]*Repo{en.repo})
+				if !en.repo.SyncsByItself() {
+					Debug("%s: left alone, automatic syncing is off for it", en.repo.Name)
+					continue
+				}
 				TrayMarkSyncing(true)
 				res := e.Sync(en.repo)
 				TrayMarkSyncing(false)
@@ -178,5 +185,43 @@ func (e *Engine) watchLoop(repos []*Repo, externalStop <-chan struct{}) {
 		if !fired {
 			time.Sleep(5 * time.Second)
 		}
+	}
+}
+
+// autoTargets drops the repositories automatic syncing is supposed to leave
+// alone. `syn pause` and `syn auto <repo> off` promise exactly this, and
+// until now only the tray and the desktop app kept the promise - the watcher
+// synced everything it was given.
+func autoTargets(repos []*Repo) []*Repo {
+	kept := make([]*Repo, 0, len(repos))
+	for _, r := range repos {
+		if r.SyncsByItself() {
+			kept = append(kept, r)
+		}
+	}
+	return kept
+}
+
+// reloadAutoState re-reads the switches from the config file, so pausing a
+// repository takes effect on a watcher that is already running. The watcher
+// lives for days; a pause that only applied after a restart would not be a
+// pause at all.
+//
+// Only the two switches are taken. Paths, hooks and intervals are left as
+// they were, because changing those under a running sync is a different and
+// riskier thing than deciding not to sync at all.
+func (e *Engine) reloadAutoState(repos []*Repo) {
+	fresh, err := LoadConfig()
+	if err != nil {
+		Debug("could not re-read the config: %v", err)
+		return
+	}
+	for _, r := range repos {
+		f := fresh.Find(r.Name)
+		if f == nil {
+			continue // removed from the config; the next restart drops it
+		}
+		r.Enabled = f.Enabled
+		r.PausedUntil = f.PausedUntil
 	}
 }
