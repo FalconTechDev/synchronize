@@ -375,6 +375,11 @@ Now a contributor can change the site, but not what happens to it.
 
 Other properties:
 
+- The dashboard (`syn serve`) listens on localhost only unless you tell it
+  otherwise, and its pull and push endpoints refuse requests that a browser
+  says came from another site. `--addr :8080` listens on every interface —
+  syn warns when you ask for that, because anyone who can reach it can
+  publish your work. `--addr 127.0.0.1:8080` changes the port without that.
 - Tokens live in `~/.synchronize/credentials.json`, mode 0600.
 - They are never written into a remote URL. They reach git through a
   credential helper for the length of one command.

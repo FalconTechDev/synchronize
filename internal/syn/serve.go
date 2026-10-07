@@ -58,7 +58,7 @@ func (e *Engine) Serve(cfg *Config, addr string) error {
 		}
 		json.NewEncoder(w).Encode(rows)
 	})
-	mux.HandleFunc("/api/pull", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/pull", sameOriginOnly(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "POST only", 405)
 			return
@@ -71,8 +71,8 @@ func (e *Engine) Serve(cfg *Config, addr string) error {
 		}
 		res := e.Pull(repo)
 		writeResult(w, res)
-	})
-	mux.HandleFunc("/api/push", func(w http.ResponseWriter, r *http.Request) {
+	}))
+	mux.HandleFunc("/api/push", sameOriginOnly(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "POST only", 405)
 			return
@@ -85,7 +85,7 @@ func (e *Engine) Serve(cfg *Config, addr string) error {
 		}
 		res := e.Push(repo)
 		writeResult(w, res)
-	})
+	}))
 	mux.HandleFunc("/api/log", func(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "text/event-stream")
@@ -106,6 +106,12 @@ func (e *Engine) Serve(cfg *Config, addr string) error {
 		<-r.Context().Done()
 		pr.Close()
 	})
+
+	if listensBeyondThisMachine(addr) {
+		Warn("%s accepts connections from the network, and this dashboard can\n"+
+			"       pull and push. Anyone who can reach it can publish your work.\n"+
+			"       For a different port on this machine only:  --addr 127.0.0.1:8080", addr)
+	}
 
 	display := addr
 	if strings.HasPrefix(addr, ":") {

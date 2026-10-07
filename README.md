@@ -323,7 +323,7 @@ Config lives in `~/.synchronize/config.json` (or wherever `SYNCHRONIZE_HOME` poi
 |---|---|
 | `syn shell` | Interactive shell with Tab completion and inline hints |
 | `syn tray` | Sits in the system tray with Pull / Push to hand |
-| `syn serve` | Dashboard at `http://localhost:7391` — all repos, log as it happens |
+| `syn serve` | Dashboard at `http://localhost:7391` — all repos, log as it happens. This machine only; `--addr 127.0.0.1:8080` to change the port |
 | `syn doctor` | Checks git, account, background syncing, and any repo in trouble |
 
 ---
