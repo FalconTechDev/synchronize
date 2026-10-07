@@ -1378,16 +1378,54 @@ func cmdStatus(e *syn.Engine, cfg *syn.Config, selector string, has func(string)
 	}
 	fetch := has("--fetch")
 
-	if has("--json") {
-		return printJSON(statusRows(e, repos, fetch))
+	// The rows are gathered once and reported once, so the exit code
+	// describes what was printed rather than a second look at the disk.
+	rows := statusRows(e, repos, fetch)
+
+	switch {
+	case has("--json"):
+		if err := printJSON(rows); err != nil {
+			return err
+		}
+	case has("--porcelain"):
+		printPorcelain(rows)
+	default:
+		for _, r := range repos {
+			fmt.Print(e.Status(r, fetch).String())
+			fmt.Println()
+		}
 	}
-	if has("--porcelain") {
-		printPorcelain(statusRows(e, repos, fetch))
-		return nil
+	return statusExit(rows)
+}
+
+// statusExit turns what status found into an exit code. A script asking
+// whether everything is in order gets its answer from the exit code, which
+// used to be zero even when a repository was broken or conflicted - so
+// `syn status all --json || alert` never alerted.
+//
+// Being ahead or behind is not a fault: that is the normal state between
+// syncs, and only an error or a conflict counts.
+func statusExit(rows []StatusRow) error {
+	var broken, conflicted []string
+	for _, row := range rows {
+		switch {
+		case row.Error != "":
+			broken = append(broken, row.Name)
+		case row.Conflict != "":
+			conflicted = append(conflicted, row.Name)
+		}
 	}
-	for _, r := range repos {
-		fmt.Print(e.Status(r, fetch).String())
-		fmt.Println()
+	switch {
+	case len(broken) > 0 && len(conflicted) > 0:
+		return fmt.Errorf("%s cannot be read, and %s %s a conflict open",
+			strings.Join(broken, ", "), strings.Join(conflicted, ", "),
+			pickText(len(conflicted) == 1, "has", "have"))
+	case len(broken) > 0:
+		return fmt.Errorf("%s cannot be read - see the error above",
+			strings.Join(broken, ", "))
+	case len(conflicted) > 0:
+		return fmt.Errorf("%s %s a conflict open - run `syn resolve`",
+			strings.Join(conflicted, ", "), pickText(len(conflicted) == 1, "has", "have"))
 	}
 	return nil
 }
@@ -1732,7 +1770,10 @@ func cmdDoctor(e *syn.Engine, cfg *syn.Config) error {
 	for _, p := range problems {
 		fmt.Print(p)
 	}
-	return nil
+	// A health check that says "something is wrong" and then reports success
+	// is no use to anything watching it.
+	return fmt.Errorf("%s needs attention",
+		pickText(len(problems) == 1, "1 repository", fmt.Sprintf("%d repositories", len(problems))))
 }
 
 func cmdRepoCreate(cfg *syn.Config, creds *syn.Credentials, name string, temp, public bool, values map[string]string) error {

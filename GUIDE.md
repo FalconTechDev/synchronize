@@ -452,6 +452,15 @@ syn path my-repo             # just the folder
 **Exit codes:** 0 on success, non-zero on any failure — including a feature
 that is not finished yet, so a script can tell the difference.
 
+`status` and `doctor` answer with their exit code too: non-zero when a
+repository cannot be read or has a conflict open, zero when everything is in
+order. Being ahead or behind is not a failure — that is the normal state
+between syncs. So this does what it looks like it does:
+
+```bash
+syn status all --json > state.json || notify "syn needs attention"
+```
+
 **Non-interactive:** commands that ask a question refuse when there is nobody
 to answer, rather than guessing. Pass `--yes`:
 
