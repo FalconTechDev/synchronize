@@ -46,7 +46,10 @@ REPOSITORIES
   remove <repo>          stop tracking a repository (files untouched)
   enable <repo>          same as auto <repo> on
   disable <repo>         same as auto <repo> off
-  set <repo> <k> <v>     change name, remote, branch, interval, require_checks
+  set <repo> <k> <v>     change name, remote, branch, interval, autocommit,
+                         require_checks
+                         autocommit off: sync only the commits you made
+                         yourself, and leave work in progress alone
                          interval takes minutes or a duration: 30m, 12h, 1d
                          require_checks on: never pull a commit whose GitHub
                          checks are red or still running (--no-checks overrides)
@@ -769,6 +772,15 @@ func cmdSet(cfg *syn.Config, key, field, value string) error {
 			return fmt.Errorf("interval must be minutes, or a duration like 30m, 12h, 1d (0 = use the global setting)")
 		}
 		r.IntervalMinutes = n
+	case "autocommit", "auto_commit":
+		switch value {
+		case "on", "true", "yes":
+			r.NoAutoCommit = false
+		case "off", "false", "no":
+			r.NoAutoCommit = true
+		default:
+			return fmt.Errorf("autocommit is on or off, not %q", value)
+		}
 	case "require_checks", "require-checks":
 		switch value {
 		case "on", "true", "yes":
@@ -779,7 +791,7 @@ func cmdSet(cfg *syn.Config, key, field, value string) error {
 			return fmt.Errorf("require_checks is on or off, not %q", value)
 		}
 	default:
-		return fmt.Errorf("cannot set %q - use name, remote, branch, interval or require_checks", field)
+		return fmt.Errorf("cannot set %q - use name, remote, branch, interval, autocommit or require_checks", field)
 	}
 	if err := cfg.Save(); err != nil {
 		return err

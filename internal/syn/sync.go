@@ -221,6 +221,15 @@ func (e *Engine) autoCommit(r *Repo) (bool, []FileChange, error) {
 	if err != nil || !dirty {
 		return false, nil, err
 	}
+	// Told to leave uncommitted work alone: publish the commits that were
+	// made deliberately and say what is being left, so it does not look as
+	// though the changes were pushed.
+	if r.NoAutoCommit {
+		if files := ChangedFilesDetailed(r.Path); len(files) > 0 {
+			Info("%s: %s left uncommitted (autocommit is off)", r.Name, plural(len(files), "file"))
+		}
+		return false, nil, nil
+	}
 	files := ChangedFilesDetailed(r.Path)
 
 	// Never commit a half-finished merge, whatever syn does or does not

@@ -87,6 +87,14 @@ func (s RepoStatus) String() string {
 	if !s.Repo.Enabled {
 		fmt.Fprintf(&b, "  disabled: not touched by --all\n")
 	}
+	// Worth saying, or uncommitted work sitting there looks like a fault
+	// rather than the setting that was asked for.
+	if s.Repo.NoAutoCommit && s.Dirty {
+		fmt.Fprintf(&b, "  note:     autocommit is off - those changes stay here until you commit them\n")
+	}
+	if s.Repo.PullOnly {
+		fmt.Fprintf(&b, "  note:     deploy target - changes come down, nothing goes up\n")
+	}
 	return b.String()
 }
 

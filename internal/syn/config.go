@@ -42,6 +42,13 @@ type Repo struct {
 	// from an older copy does not quietly drop them.
 	unknown extras
 
+	// NoAutoCommit syncs only what you committed yourself. For a repository
+	// you actually develop in, an automatic commit every ten minutes fills
+	// the history with "sync: auto-commit" between the commits that mean
+	// something - and the work in progress travels to the other machine
+	// half-finished, which is rarely what was wanted.
+	NoAutoCommit bool `json:"no_auto_commit,omitempty"`
+
 	// PullOnly makes this a place code is deployed to rather than worked
 	// in: syncing brings changes down and never sends anything up. A server
 	// writes into its own working tree all the time - logs, caches, an

@@ -26,7 +26,7 @@ var catalog = map[string]cmdInfo{
 	"init":   {"[path]", "track the git repo at path (default: here)", "Repositories"},
 	"repo":   {"<add|ls>", "clone from GitHub, or list what is there", "Repositories"},
 	"remove": {"<repo>", "stop tracking it; the files stay put", "Repositories"},
-	"set":    {"<repo> <name|remote|branch|interval|require_checks> <value>", "change a repository setting", "Repositories"},
+	"set":    {"<repo> <name|remote|branch|interval|autocommit|require_checks> <value>", "change a repository setting", "Repositories"},
 	"files":  {"<include|exclude|clear> <repo> <glob>", "sync only part of a repository", "Repositories"},
 
 	// Hooks

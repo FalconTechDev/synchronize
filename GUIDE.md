@@ -408,7 +408,15 @@ syn set my-repo interval 12h
 syn set my-repo branch dev
 syn set my-repo name shorter-name
 syn set my-repo require_checks on|off
+syn set my-repo autocommit off      # sync only the commits you made yourself
 ```
+
+`autocommit off` is for a repository you develop in rather than one you just
+keep in step. syn still pulls, and still pushes the commits you made, but it
+stops committing your work in progress every ten minutes — which otherwise
+fills the history with `sync: auto-commit` between the commits that mean
+something, and sends half-finished work to your other machine. `syn status`
+says so when there is uncommitted work, so it does not look like a fault.
 
 Files under `SYNCHRONIZE_HOME`:
 
