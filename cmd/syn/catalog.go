@@ -76,6 +76,8 @@ var subHints = map[string]cmdInfo{
 	"auth setup":        {"<github oauth client id>", "use your own OAuth app", ""},
 	"app start":         {"<repo>", "run the program here, attached, to try it", ""},
 	"app off":           {"<repo>", "stop running the program", ""},
+	"config telegram":   {"<bot-token> <chat-id> | off", "send conflict alerts to Telegram", ""},
+	"config test":       {"", "send one alert now, to check it arrives", ""},
 	"restart run":       {"<repo>", "try the restart command now, without syncing", ""},
 	"restart off":       {"<repo>", "stop restarting anything for this repository", ""},
 	"service install":   {"[--as <user>] [--home <dir>]", "install the system service (needs sudo)", ""},

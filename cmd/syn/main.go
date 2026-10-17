@@ -153,6 +153,10 @@ OTHER
   config                 print the current configuration
   config set <k> <v>     backup, push_backup, strategy, interval_minutes,
                          notify, commit_template, keep_backup_days
+  config telegram <token> <chat-id>
+                         send conflict alerts to a Telegram bot
+  config telegram        show it;  config telegram off  to stop
+  config test            send one alert now, to check it arrives
   log [repo] [n]         last n log lines, all of them or one repository's
   log [repo] --live      stream the log in real time
   diff <repo|all>        what is not committed yet, untracked files included
@@ -165,12 +169,6 @@ GLOBAL FLAGS
   --quiet     no stdout (the log file is still written)
   -v          verbose
 
-COMING SOON
-  syn send <file> @<repo>   send files to another machine via a shared repo
-  syn receive <repo>        watch for incoming files and copy them locally
-  syn encrypt <repo>        per-repo AES-256 encryption via git filters
-  syn tmp <files...>        one-shot file transfer via a throwaway repo
-  config telegram ...       conflict alerts via Telegram bot
 `
 
 func main() {
@@ -1481,9 +1479,10 @@ func cmdConfig(cfg *syn.Config, rest []string) error {
 		return nil
 	}
 	switch rest[0] {
-	case "telegram", "test":
-		fmt.Printf("syn config %s is coming soon — not available yet\n", rest[0])
-		return nil
+	case "telegram":
+		return cmdConfigTelegram(cfg, rest[1:])
+	case "test":
+		return cmdConfigTest(cfg)
 	case "set":
 		if len(rest) < 3 {
 			return fmt.Errorf("usage: syn config set <key> <value>")
@@ -1491,14 +1490,6 @@ func cmdConfig(cfg *syn.Config, rest []string) error {
 		return applyConfigKey(cfg, rest[1], strings.Join(rest[2:], " "))
 	}
 	return fmt.Errorf("unknown config subcommand %q", rest[0])
-}
-
-func mustHost() string {
-	h, _ := os.Hostname()
-	if h == "" {
-		return "unknown host"
-	}
-	return h
 }
 
 func applyConfigKey(cfg *syn.Config, key, value string) error {
@@ -1838,213 +1829,6 @@ func cmdRepoCreate(cfg *syn.Config, creds *syn.Credentials, name string, temp, p
 		syn.Info("drop with: syn tmp drop %s", repoName)
 	}
 	return nil
-}
-
-func cmdTmp(cfg *syn.Config, creds *syn.Credentials, rest []string, has func(string) bool, values map[string]string) error {
-	sub := ""
-	if len(rest) > 0 {
-		sub = rest[0]
-	}
-	switch sub {
-	case "create":
-		name := ""
-		if len(rest) >= 2 {
-			name = rest[1]
-		}
-		if name == "" {
-			name = fmt.Sprintf("syn-tmp-%d", time.Now().Unix())
-		}
-		return cmdRepoCreate(cfg, creds, name, true, has("--public"), values)
-
-	case "drop":
-		key := ""
-		if len(rest) >= 2 {
-			key = rest[1]
-		}
-		if key == "" {
-			return fmt.Errorf("usage: syn tmp drop <name>")
-		}
-		repo := cfg.Find(key)
-		if repo == nil {
-			return fmt.Errorf("repo %q not found", key)
-		}
-		if !repo.Temp {
-			return fmt.Errorf("%q is not a temporary repo - use `syn remove %s` to untrack, or `syn tmp drop --force %s` to delete it from GitHub anyway", key, key, key)
-		}
-		token := creds.Token("github.com")
-		if token == "" {
-			return fmt.Errorf("not logged in - run `syn auth login` first")
-		}
-		gh := syn.NewGitHub(token)
-		slug := repo.GithubSlug
-		syn.Info("deleting %s from GitHub...", slug)
-		if err := gh.DeleteRepo(slug); err != nil {
-			return err
-		}
-		syn.Info("deleted from GitHub")
-		cfg.Repos = func() []syn.Repo {
-			out := cfg.Repos[:0]
-			for _, r := range cfg.Repos {
-				if r.Name != repo.Name {
-					out = append(out, r)
-				}
-			}
-			return out
-		}()
-		if err := cfg.Save(); err != nil {
-			return err
-		}
-		syn.Info("unregistered %q (local files at %s are kept)", repo.Name, repo.Path)
-		return nil
-
-	case "ls", "list", "":
-		found := false
-		for i := range cfg.Repos {
-			r := &cfg.Repos[i]
-			if r.Temp {
-				status := "enabled"
-				if !r.Enabled {
-					status = "disabled"
-				}
-				fmt.Printf("  %-24s  %s  %s\n", r.Name, r.GithubSlug, status)
-				found = true
-			}
-		}
-		if !found {
-			fmt.Println("no temporary repos (create one with `syn tmp create [name]`)")
-		}
-		return nil
-
-	default:
-		return fmt.Errorf("usage: syn tmp <create|drop|ls>")
-	}
-}
-
-func cmdSend(cfg *syn.Config, creds *syn.Credentials, engine *syn.Engine, rest []string, values map[string]string) error {
-
-	if len(rest) == 0 {
-		return fmt.Errorf("usage: syn send <file> [@repo-name]\n  or:  syn send <file> (creates a new tmp repo)")
-	}
-
-	var files []string
-	var target string
-	for _, a := range rest {
-		if strings.HasPrefix(a, "@") {
-			target = strings.TrimPrefix(a, "@")
-		} else {
-			files = append(files, a)
-		}
-	}
-	if len(files) == 0 {
-		return fmt.Errorf("no files specified")
-	}
-
-	for _, f := range files {
-		if _, err := os.Stat(f); err != nil {
-			return fmt.Errorf("file not found: %s", f)
-		}
-	}
-
-	if target != "" {
-		repo := cfg.Find(target)
-		if repo == nil {
-			return fmt.Errorf("repo %q not registered", target)
-		}
-		return engine.SendFiles(repo, files)
-	}
-
-	name, err := engine.SendViaNewTmp(creds, cfg, files)
-	if err != nil {
-		return err
-	}
-	syn.Info("receive on other machine: syn pull %s", name)
-	syn.Info("then drop when done:      syn tmp drop %s", name)
-	return nil
-}
-
-func cmdEncrypt(cfg *syn.Config, creds *syn.Credentials, rest []string, values map[string]string) error {
-	sub := ""
-	if len(rest) > 0 {
-		sub = rest[0]
-	}
-	switch sub {
-	case "init":
-
-		if len(rest) < 2 {
-			return fmt.Errorf("usage: syn encrypt init <repo-name>")
-		}
-		repoName := rest[1]
-		repo := cfg.Find(repoName)
-		if repo == nil {
-			return fmt.Errorf("repo %q not registered", repoName)
-		}
-		key, err := syn.GenerateKey(repoName)
-		if err != nil {
-			return err
-		}
-		if err := syn.SetupEncryption(repo.Path, repoName); err != nil {
-			return err
-		}
-		hexKey, _ := syn.ExportKey(repoName)
-		syn.Info("encryption enabled for %q", repoName)
-		fmt.Printf("\nKey (share with other machines):\n  %s\n\n", hexKey)
-		fmt.Printf("On other machine run:\n  syn encrypt add-key %s <key>\n\n", repoName)
-		_ = key
-		return nil
-
-	case "add-key":
-
-		if len(rest) < 3 {
-			return fmt.Errorf("usage: syn encrypt add-key <repo-name> <hex-key>")
-		}
-		repoName, hexKey := rest[1], rest[2]
-		repo := cfg.Find(repoName)
-		if repo == nil {
-			return fmt.Errorf("repo %q not registered", repoName)
-		}
-		if err := syn.ImportKey(repoName, hexKey); err != nil {
-			return err
-		}
-		if err := syn.SetupEncryption(repo.Path, repoName); err != nil {
-			return err
-		}
-		syn.Info("key imported and encryption filter installed for %q", repoName)
-		return nil
-
-	case "show-key":
-		if len(rest) < 2 {
-			return fmt.Errorf("usage: syn encrypt show-key <repo-name>")
-		}
-		hexKey, err := syn.ExportKey(rest[1])
-		if err != nil {
-			return err
-		}
-		fmt.Println(hexKey)
-		return nil
-
-	case "clean":
-		if len(rest) < 2 {
-			return fmt.Errorf("clean: need repo name")
-		}
-		key, err := syn.LoadKey(rest[1])
-		if err != nil {
-			return err
-		}
-		return syn.Encrypt(os.Stdout, os.Stdin, key)
-
-	case "smudge":
-		if len(rest) < 2 {
-			return fmt.Errorf("smudge: need repo name")
-		}
-		key, err := syn.LoadKey(rest[1])
-		if err != nil {
-			return err
-		}
-		return syn.Decrypt(os.Stdout, os.Stdin, key)
-
-	default:
-		return fmt.Errorf("usage: syn encrypt <init|add-key|show-key> <repo-name>")
-	}
 }
 
 func exechelp() (string, error) {

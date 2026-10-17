@@ -1,7 +1,6 @@
 package syn
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -285,15 +284,6 @@ func AuthStatus(creds *Credentials) string {
 		return ""
 	}
 	return display
-}
-
-func promptLine(prompt string) string {
-	fmt.Fprint(os.Stderr, prompt)
-	s := bufio.NewScanner(os.Stdin)
-	if s.Scan() {
-		return strings.TrimSpace(s.Text())
-	}
-	return ""
 }
 
 func (g *GitHub) CreateRepo(name, description string, private bool) (*GHRepo, error) {
