@@ -4,6 +4,9 @@ on:
   push:
     branches: [ main ]
   pull_request:
+  # So a run can be started by hand, which is also the only way to find
+  # out whether Actions is working at all on a freshly created repository.
+  workflow_dispatch:
 
 permissions:
   contents: read
