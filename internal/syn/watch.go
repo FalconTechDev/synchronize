@@ -118,16 +118,22 @@ func (e *Engine) watchLoop(repos []*Repo, externalStop <-chan struct{}) {
 	e.StartApps(autoTargets(repos))
 	defer e.StopApps()
 
+	// Leave a note saying the watcher is here, so `syn status` can answer
+	// "is it actually running" rather than only "is autostart switched on".
+	beat := startHeartbeat(len(repos))
+	defer beat.stop()
+
 	type entry struct {
-		repo    *Repo
-		ticker  *time.Ticker
-		channel <-chan time.Time
+		repo     *Repo
+		ticker   *time.Ticker
+		channel  <-chan time.Time
+		interval time.Duration
 	}
 	entries := make([]entry, len(repos))
 	for i, r := range repos {
 		interval := time.Duration(e.Cfg.IntervalFor(r)) * time.Minute
 		t := time.NewTicker(interval)
-		entries[i] = entry{r, t, t.C}
+		entries[i] = entry{r, t, t.C, interval}
 		Info("  %s: every %s", r.Name, interval)
 	}
 	defer func() {
@@ -156,7 +162,8 @@ func (e *Engine) watchLoop(repos []*Repo, externalStop <-chan struct{}) {
 		}
 
 		fired := false
-		for _, en := range entries {
+		for i := range entries {
+			en := &entries[i]
 			select {
 			case <-en.channel:
 				// Ask the config again rather than trust the copy read at
@@ -165,6 +172,14 @@ func (e *Engine) watchLoop(repos []*Repo, externalStop <-chan struct{}) {
 				if !en.repo.SyncsByItself() {
 					Debug("%s: left alone, automatic syncing is off for it", en.repo.Name)
 					continue
+				}
+				// Pick up an interval changed since the watcher started,
+				// rather than make the change wait for a restart nobody
+				// knows is needed.
+				if want := time.Duration(e.Cfg.IntervalFor(en.repo)) * time.Minute; want != en.interval {
+					Info("%s: now checked every %s", en.repo.Name, want)
+					en.ticker.Reset(want)
+					en.interval = want
 				}
 				TrayMarkSyncing(true)
 				res := e.Sync(en.repo)
@@ -182,6 +197,7 @@ func (e *Engine) watchLoop(repos []*Repo, externalStop <-chan struct{}) {
 			default:
 			}
 		}
+		beat.beat()
 		if !fired {
 			time.Sleep(5 * time.Second)
 		}
@@ -223,5 +239,11 @@ func (e *Engine) reloadAutoState(repos []*Repo) {
 		}
 		r.Enabled = f.Enabled
 		r.PausedUntil = f.PausedUntil
+		r.IntervalMinutes = f.IntervalMinutes
+	}
+	// The global default can move too, and a watcher that only noticed the
+	// per-repository one would be half right in a confusing way.
+	if e.Cfg != nil && fresh.IntervalMinutes > 0 {
+		e.Cfg.IntervalMinutes = fresh.IntervalMinutes
 	}
 }

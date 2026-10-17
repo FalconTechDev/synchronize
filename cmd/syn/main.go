@@ -1388,6 +1388,7 @@ func cmdStatus(e *syn.Engine, cfg *syn.Config, selector string, has func(string)
 	case has("--porcelain"):
 		printPorcelain(rows)
 	default:
+		printWatcherLine(e, repos)
 		for _, r := range repos {
 			fmt.Print(e.Status(r, fetch).String())
 			fmt.Println()

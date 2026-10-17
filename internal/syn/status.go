@@ -129,3 +129,29 @@ func notAWorkingTree(r *Repo) error {
 		"        clone it again:  syn repo add %s --path %s\n"+
 		"        or stop tracking it:  syn remove %s", r.Path, slug, r.Path, r.Name)
 }
+
+// TimeAgo and TimeUntil put a moment in words, for the lines that tell you
+// what the watcher is doing.
+func TimeAgo(t time.Time) string {
+	if t.IsZero() {
+		return "never"
+	}
+	return timeAgo(t)
+}
+
+func TimeUntil(t time.Time) string {
+	d := time.Until(t)
+	if d <= 0 {
+		return "any moment now"
+	}
+	switch {
+	case d < time.Minute:
+		return "in less than a minute"
+	case d < time.Hour:
+		return fmt.Sprintf("in %d min", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("in %d h", int(d.Hours()))
+	default:
+		return fmt.Sprintf("in %d days", int(d.Hours()/24))
+	}
+}

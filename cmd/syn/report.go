@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/FalconTechDev/synchronize/internal/syn"
 )
@@ -125,4 +126,51 @@ func opReports(results []syn.Result) []OpReport {
 		out = append(out, rep)
 	}
 	return out
+}
+
+// printWatcherLine answers the question status could not answer before: is
+// the thing that is supposed to be syncing actually running? `syn auto` says
+// whether autostart is switched on, which is not the same - the task can be
+// registered and the process long dead, and everything would look healthy
+// while nothing synced.
+func printWatcherLine(e *syn.Engine, repos []*syn.Repo) {
+	hb := syn.RunningWatcher()
+	if hb == nil {
+		fmt.Println("  watcher:  not running")
+		if syn.LoginEnabled() {
+			fmt.Println("            it is set to start at login - start it now with:  syn start")
+		} else {
+			fmt.Println("            switch automatic syncing on with:  syn auto on")
+		}
+		fmt.Println()
+		return
+	}
+
+	fmt.Printf("  watcher:  running (pid %d), started %s, checked %s\n",
+		hb.PID, syn.TimeAgo(hb.Started), syn.TimeAgo(hb.Updated))
+
+	if next, name := soonestCheck(e, repos); !next.IsZero() {
+		fmt.Printf("            next look at %s %s\n", name, syn.TimeUntil(next))
+	}
+	fmt.Println()
+}
+
+// soonestCheck is the repository the watcher will reach first, so the line
+// above says something specific rather than "sometime".
+func soonestCheck(e *syn.Engine, repos []*syn.Repo) (time.Time, string) {
+	var best time.Time
+	var name string
+	for _, r := range repos {
+		if !r.SyncsByItself() {
+			continue
+		}
+		at := e.NextCheck(r)
+		if at.IsZero() {
+			continue
+		}
+		if best.IsZero() || at.Before(best) {
+			best, name = at, r.Name
+		}
+	}
+	return best, name
 }

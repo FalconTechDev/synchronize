@@ -348,6 +348,7 @@ func (e *Engine) runWithHooks(r *Repo, op string, allowConflict bool, run func(*
 	// conflict is for. --force and `syn resolve` are the ways out, and
 	// neither comes through here.
 	if c, stuck := e.State.Conflicts[r.Name]; stuck && !allowConflict {
+		e.nagAboutConflict(r, c)
 		return Result{Repo: r.Name, Remote: r.Remote, Path: r.Path,
 			Err: conflictStillOpen(r, c)}
 	}
@@ -718,10 +719,14 @@ func (e *Engine) RunAll(repos []*Repo, op func(*Repo) Result) []Result {
 		res := op(r)
 		switch {
 		case res.Err != nil:
-			Errorf("%s", res.Summary())
+			// An unchanged failure is not news every ten minutes.
+			if line, worth := shouldReport(r.Name, res.Summary()); worth {
+				Errorf("%s", line)
+			}
 		case res.Conflict != nil:
 
 		default:
+			clearRepeat(r.Name)
 			if !res.summaryLogged {
 				Info("%s", res.Detail())
 			}
@@ -817,4 +822,38 @@ func orNone(s string) string {
 		return "(no backup branch was taken)"
 	}
 	return s
+}
+
+// nagAboutConflict raises its voice as a conflict goes unanswered.
+//
+// Stopping on a conflict is right, but it has a failure mode of its own: the
+// notification is seen once, then the repository sits there not syncing and
+// nothing says so again. A day later the work on the other machine is
+// further away than ever and nobody knows. So the alert comes back - once a
+// day, saying how long it has been, which is the part that makes someone act.
+func (e *Engine) nagAboutConflict(r *Repo, c Conflict) {
+	stuck := time.Since(c.At)
+	if stuck < 24*time.Hour {
+		return
+	}
+	if last, ok := e.State.LastNag[r.Name]; ok && time.Since(last) < 24*time.Hour {
+		return
+	}
+	if e.State.LastNag == nil {
+		e.State.LastNag = map[string]time.Time{}
+	}
+	e.State.LastNag[r.Name] = time.Now()
+	if err := e.State.Save(); err != nil {
+		Debug("could not record the conflict reminder: %v", err)
+	}
+
+	Warn("%s has not synced for %s - a conflict is still waiting on you", r.Name, roughly(stuck))
+	e.Notifier.Send("conflict", Alert{
+		Title: "synchronize: не синхронизируется",
+		Short: fmt.Sprintf("%s стоит %s — запусти: syn resolve %s", r.Name, roughly(stuck), r.Name),
+		Full: fmt.Sprintf("synchronize: %s не синхронизируется\n\n"+
+			"Конфликт не разрешён уже %s, и всё это время репозиторий стоит.\n"+
+			"Файлы: %s\n\nПочини и запусти: syn resolve %s",
+			r.Name, roughly(stuck), strings.Join(c.Files, ", "), r.Name),
+	})
 }

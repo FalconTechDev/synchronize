@@ -2,7 +2,6 @@ package syn
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -24,34 +23,43 @@ type State struct {
 
 	// LastPrune keeps the automatic clear-out to once a day per repository.
 	LastPrune map[string]time.Time `json:"last_prune,omitempty"`
+
+	// LastNag keeps the reminder about an unresolved conflict to once a
+	// day, so it is noticed rather than tuned out.
+	LastNag map[string]time.Time `json:"last_nag,omitempty"`
 }
 
 func statePath() string { return filepath.Join(Home(), "state.json") }
 
 func LoadState() *State {
-	st := &State{
-		Conflicts: map[string]Conflict{},
-		LastSync:  map[string]time.Time{},
-		LastPrune: map[string]time.Time{},
+	st := &State{}
+	if b, err := os.ReadFile(statePath()); err == nil {
+		_ = json.Unmarshal(b, st)
 	}
-	b, err := os.ReadFile(statePath())
-	if errors.Is(err, os.ErrNotExist) || err != nil {
-		return st
-	}
-	_ = json.Unmarshal(b, st)
-	if st.Conflicts == nil {
-		st.Conflicts = map[string]Conflict{}
-	}
-	if st.LastSync == nil {
-		st.LastSync = map[string]time.Time{}
-	}
-	// Every map non-nil, so a caller can write to one without checking.
-	// last_prune is omitted from the file when empty, so it arrives nil
-	// from an older state file and writing to it would panic.
-	if st.LastPrune == nil {
-		st.LastPrune = map[string]time.Time{}
-	}
+	st.fillMaps()
 	return st
+}
+
+// fillMaps leaves every map ready to be written to.
+//
+// Each of these is omitted from the file when empty, so it comes back nil
+// from any state file written before that field existed - and writing to a
+// nil map panics. Doing it in one place, on every path out of LoadState,
+// means adding a field later cannot reintroduce that: twice now a new map
+// has been added and the initialisation missed on one path.
+func (s *State) fillMaps() {
+	if s.Conflicts == nil {
+		s.Conflicts = map[string]Conflict{}
+	}
+	if s.LastSync == nil {
+		s.LastSync = map[string]time.Time{}
+	}
+	if s.LastPrune == nil {
+		s.LastPrune = map[string]time.Time{}
+	}
+	if s.LastNag == nil {
+		s.LastNag = map[string]time.Time{}
+	}
 }
 
 func (s *State) Save() error {
@@ -78,6 +86,7 @@ func ForgetRepoState(name string) {
 	delete(st.Conflicts, name)
 	delete(st.LastSync, name)
 	delete(st.LastPrune, name)
+	delete(st.LastNag, name)
 	if err := st.Save(); err != nil {
 		Warn("could not clear the saved state for %q: %v", name, err)
 	}
