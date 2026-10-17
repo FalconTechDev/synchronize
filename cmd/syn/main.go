@@ -282,13 +282,22 @@ func parseMinutes(v string) (int, error) {
 	if v == "" {
 		return 0, fmt.Errorf("empty value")
 	}
+	// Negative is refused here rather than left to each caller. Every one of
+	// them happens to check, but an interval of minus five minutes is not a
+	// value this function should ever hand back for someone to notice later.
 	if n, err := strconv.Atoi(v); err == nil {
+		if n < 0 {
+			return 0, fmt.Errorf("%s is not a length of time", v)
+		}
 		return n, nil
 	}
 	if strings.HasSuffix(v, "d") {
 		n, err := strconv.Atoi(strings.TrimSuffix(v, "d"))
 		if err != nil {
 			return 0, err
+		}
+		if n < 0 {
+			return 0, fmt.Errorf("%s is not a length of time", v)
 		}
 		return n * 24 * 60, nil
 	}
@@ -298,6 +307,9 @@ func parseMinutes(v string) (int, error) {
 	}
 	if d < time.Minute {
 		return 0, fmt.Errorf("%s is shorter than a minute", v)
+	}
+	if d < 0 {
+		return 0, fmt.Errorf("%s is not a length of time", v)
 	}
 	return int(d.Minutes()), nil
 }
