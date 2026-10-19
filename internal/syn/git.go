@@ -30,6 +30,9 @@ func (e *GitError) Unwrap() error { return e.Err }
 var gitBaseEnv = []string{
 	"GIT_TERMINAL_PROMPT=0",
 	"GIT_OPTIONAL_LOCKS=0",
+	// A background tool must never wait for an editor: `rebase --continue` and merges
+	// open one for the commit message, and without a terminal that fails or hangs.
+	"GIT_EDITOR=true",
 }
 
 func git(dir string, args ...string) (string, error) {
