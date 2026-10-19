@@ -1,55 +1,49 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 390" width="760" height="390" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" role="img" aria-label="doctor, and the log narrowed to one repository">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 333" width="760" height="333" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" role="img" aria-label="doctor on a healthy setup, and the log narrowed to one repository">
   <title>checking on it</title>
 
   <style>
     .bg     { fill: #0d1117 }
     .chrome { fill: #161b22 }
     .edge   { fill: none; stroke: #30363d; stroke-width: 1 }
-    text    { font-size: 13.5px }
-    /* Visible by default; the keyframes do the hiding. A renderer that does
-       not animate then shows the finished screen, not an empty box. */
+    text    { font-size: 13px }
+    /* Visible by default; the keyframes do the hiding, so a renderer that
+       does not animate shows the finished screen and not an empty box. */
     .line   { opacity: 1 }
     .l0 { animation: k0 16s linear infinite }
     @keyframes k0 { 0%,2.0%{opacity:0} 3.0%,95%{opacity:1} 100%{opacity:0} }
     .l1 { animation: k1 16s linear infinite }
-    @keyframes k1 { 0%,13.3%{opacity:0} 14.3%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k1 { 0%,15.6%{opacity:0} 16.6%,95%{opacity:1} 100%{opacity:0} }
     .l2 { animation: k2 16s linear infinite }
-    @keyframes k2 { 0%,18.0%{opacity:0} 19.0%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k2 { 0%,21.3%{opacity:0} 22.3%,95%{opacity:1} 100%{opacity:0} }
     .l3 { animation: k3 16s linear infinite }
-    @keyframes k3 { 0%,22.8%{opacity:0} 23.8%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k3 { 0%,27.0%{opacity:0} 28.0%,95%{opacity:1} 100%{opacity:0} }
     .l4 { animation: k4 16s linear infinite }
-    @keyframes k4 { 0%,27.5%{opacity:0} 28.5%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k4 { 0%,32.6%{opacity:0} 33.6%,95%{opacity:1} 100%{opacity:0} }
     .l5 { animation: k5 16s linear infinite }
-    @keyframes k5 { 0%,32.2%{opacity:0} 33.2%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k5 { 0%,38.3%{opacity:0} 39.3%,95%{opacity:1} 100%{opacity:0} }
     .l6 { animation: k6 16s linear infinite }
-    @keyframes k6 { 0%,36.9%{opacity:0} 37.9%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k6 { 0%,44.0%{opacity:0} 45.0%,95%{opacity:1} 100%{opacity:0} }
     .l7 { animation: k7 16s linear infinite }
-    @keyframes k7 { 0%,39.3%{opacity:0} 40.3%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k7 { 0%,46.8%{opacity:0} 47.8%,95%{opacity:1} 100%{opacity:0} }
     .l8 { animation: k8 16s linear infinite }
-    @keyframes k8 { 0%,44.0%{opacity:0} 45.0%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k8 { 0%,52.5%{opacity:0} 53.5%,95%{opacity:1} 100%{opacity:0} }
     .l9 { animation: k9 16s linear infinite }
-    @keyframes k9 { 0%,48.7%{opacity:0} 49.7%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k9 { 0%,55.4%{opacity:0} 56.4%,95%{opacity:1} 100%{opacity:0} }
     .l10 { animation: k10 16s linear infinite }
-    @keyframes k10 { 0%,53.4%{opacity:0} 54.4%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k10 { 0%,69.0%{opacity:0} 70.0%,95%{opacity:1} 100%{opacity:0} }
     .l11 { animation: k11 16s linear infinite }
-    @keyframes k11 { 0%,58.2%{opacity:0} 59.2%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k11 { 0%,74.6%{opacity:0} 75.6%,95%{opacity:1} 100%{opacity:0} }
     .l12 { animation: k12 16s linear infinite }
-    @keyframes k12 { 0%,62.9%{opacity:0} 63.9%,95%{opacity:1} 100%{opacity:0} }
-    .l13 { animation: k13 16s linear infinite }
-    @keyframes k13 { 0%,65.2%{opacity:0} 66.2%,95%{opacity:1} 100%{opacity:0} }
-    .l14 { animation: k14 16s linear infinite }
-    @keyframes k14 { 0%,76.6%{opacity:0} 77.6%,95%{opacity:1} 100%{opacity:0} }
-    .l15 { animation: k15 16s linear infinite }
-    @keyframes k15 { 0%,81.3%{opacity:0} 82.3%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k12 { 0%,80.3%{opacity:0} 81.3%,95%{opacity:1} 100%{opacity:0} }
     @media (prefers-reduced-motion: reduce) {
       .line { animation: none; opacity: 1 }
     }
   </style>
 
-  <rect class="bg" width="760" height="390" rx="10"/>
+  <rect class="bg" width="760" height="333" rx="10"/>
   <rect class="chrome" width="760" height="32" rx="10"/>
   <rect class="chrome" y="22" width="760" height="10"/>
-  <rect class="edge" x="0.5" y="0.5" width="759" height="389" rx="10"/>
+  <rect class="edge" x="0.5" y="0.5" width="759" height="332" rx="10"/>
 
   <circle cx="19" cy="16" r="5" fill="#ff5f57"/>
   <circle cx="37" cy="16" r="5" fill="#febc2e"/>
@@ -59,19 +53,16 @@
   <g>
     <text class="line l0" x="22" y="62"><tspan fill="#a371f7" font-weight="700">$</tspan><tspan fill="#c9d1d9" dx="8">syn doctor</tspan></text>
     <text class="line l1" x="22" y="81" fill="#c9d1d9">synchronize v1.3.0 on windows/amd64</text>
-    <text class="line l2" x="22" y="100" fill="#8b949e">  git:        git version 2.54.0</text>
-    <text class="line l3" x="22" y="119" fill="#8b949e">  home:       C:\Users\me\.synchronize</text>
-    <text class="line l4" x="22" y="138" fill="#8b949e">  repos:      4 registered</text>
-    <text class="line l5" x="22" y="157" fill="#3fb950">  background: ON - syncs at login, publishes before shutdown</text>
+    <text class="line l2" x="22" y="100" fill="#c9d1d9">  git:        git version 2.54.0.windows.1</text>
+    <text class="line l3" x="22" y="119" fill="#c9d1d9">  home:       C:/Users/me/.synchronize</text>
+    <text class="line l4" x="22" y="138" fill="#c9d1d9">  repos:      2 registered</text>
+    <text class="line l5" x="22" y="157" fill="#c9d1d9">  background: ON - syncs at login, publishes before shutdown</text>
     <text class="line l6" x="22" y="176"> </text>
-    <text class="line l7" x="22" y="195" fill="#f85149">  1 repository needs attention:</text>
-    <text class="line l8" x="22" y="214" fill="#f85149">my-bot: /srv/my-bot no longer exists</text>
-    <text class="line l9" x="22" y="233" fill="#8b949e">        it may be on a drive that is not plugged in.</text>
-    <text class="line l10" x="22" y="252" fill="#8b949e">        if it is gone for good:  syn remove my-bot</text>
-    <text class="line l11" x="22" y="271" fill="#d29922">  exit 1</text>
-    <text class="line l12" x="22" y="290"> </text>
-    <text class="line l13" x="22" y="309"><tspan fill="#a371f7" font-weight="700">$</tspan><tspan fill="#c9d1d9" dx="8">syn log my-notes 4</tspan></text>
-    <text class="line l14" x="22" y="328" fill="#8b949e">14:31:02 [INFO] my-notes: pulled 1 commit from origin/main</text>
-    <text class="line l15" x="22" y="347" fill="#8b949e">14:41:07 [INFO] my-notes: already up to date</text>
+    <text class="line l7" x="22" y="195" fill="#c9d1d9">  every repository looks healthy</text>
+    <text class="line l8" x="22" y="214"> </text>
+    <text class="line l9" x="22" y="233"><tspan fill="#a371f7" font-weight="700">$</tspan><tspan fill="#c9d1d9" dx="8">syn log my-notes 3</tspan></text>
+    <text class="line l10" x="22" y="252" fill="#c9d1d9"><tspan fill="#8b949e">2026-10-19 07:42:09 [INFO]</tspan><tspan dx="7">my-notes: pulled 1 commit from origin/main</tspan></text>
+    <text class="line l11" x="22" y="271" fill="#c9d1d9"><tspan fill="#8b949e">2026-10-19 07:42:12 [INFO]</tspan><tspan dx="7">my-notes: already up to date with origin/main</tspan></text>
+    <text class="line l12" x="22" y="290" fill="#c9d1d9"><tspan fill="#8b949e">2026-10-19 07:42:15 [INFO]</tspan><tspan dx="7">my-notes: committed local changes, pushed 1 commit to origin/main</tspan></text>
   </g>
 </svg>

@@ -1,49 +1,47 @@
 #!/usr/bin/env python3
 """Builds the terminal animations the README uses.
 
-Every one of these is a picture of the tool being used, and the one thing a
-picture of a terminal has to get right is that the columns line up. Hand-
-writing the SVG got that wrong twice: SVG collapses runs of spaces, so the
-output drifted left, and a line placed by eye is a line that is one pixel off
-somewhere. So the lines are laid out here on a fixed grid instead, and the
-file is regenerated rather than edited:
+Two rules, both learned the hard way.
+
+**The text is real.** Every line below was captured from the tool, not
+written from memory of what it ought to print. The first version of these
+animations was invented from the source, and checking it against a running
+binary found differences in most of them: syn stamps its log lines with the
+time and the level, the dry-run format was nothing like what was drawn, and
+half the wordings were close but not right. A picture of a terminal that
+does not match the terminal is worse than no picture.
+
+**The layout is computed.** SVG collapses runs of spaces, so output drawn by
+hand drifts left of where it belongs, and a line placed by eye is a pixel out
+somewhere. Lines are laid on a fixed grid here and the spaces that matter are
+escaped, so the columns line up by construction.
 
     python docs/terminals.py
 
-The animation reveals the lines in order, as a terminal does. Each line is
-visible by default and the keyframes hide it, so a renderer that does not
-animate - an image proxy, a PDF, a reader with motion turned down - shows the
-finished screen rather than an empty black box.
+Colour: syn itself prints plain text - the levels are not coloured on the way
+out. Errors are shown red here because they really do go to stderr, and the
+prompt is tinted to separate what you type from what comes back. Nothing else
+is recoloured.
 """
 
 import os
-import re
 
 OUT = os.path.dirname(os.path.abspath(__file__))
 
-FG     = "#c9d1d9"
-DIM    = "#8b949e"
+FG     = "#c9d1d9"   # what a terminal prints in
+DIM    = "#8b949e"   # comments, and the parts of a line that are furniture
 PROMPT = "#a371f7"
-OK     = "#3fb950"
-INFO   = "#58a6ff"
+ERR    = "#f85149"   # stderr
 WARN   = "#d29922"
-ERR    = "#f85149"
-
-COLOURS = {
-    "cmd": FG, "out": FG, "dim": DIM, "ok": OK,
-    "info": INFO, "warn": WARN, "err": ERR, "blank": DIM, "cont": FG,
-}
 
 FONT = ("ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, "
         "'Liberation Mono', monospace")
 
-LINE_H = 19          # distance between baselines
-TOP    = 62          # first baseline, below the title bar
+LINE_H = 19
+TOP    = 62
 LEFT   = 22
-SIZE   = 13.5
+SIZE   = 13
 
-# How long a line lingers before the next appears. A command gets more,
-# because that is the beat where a person would be typing it.
 WEIGHT = {"cmd": 2.4, "cont": 0.3, "blank": 0.5}
 
 
@@ -52,21 +50,55 @@ def esc(s):
              .replace(" ", "\u00a0"))
 
 
-def build(name, title, caption, lines, loop=16, width=760):
-    """lines: list of (kind, text). kind: cmd | cont | out | dim | ok | info | warn | err | blank"""
+def plain(s):
+    return s.replace("\u00a0", " ")
+
+
+# Measured from a rendered screen: Consolas at 13px advances about this far
+# per character. Used only to size the canvas, never to place anything.
+CHAR_W = 7.15
+
+
+def longest(lines):
+    widest = 0
+    for line in lines:
+        k = line[0]
+        if k == "blank":
+            continue
+        text = line[2] if k == "log" else line[1]
+        if k == "log":
+            text = "2026-10-19 07:42:09 [ERROR] " + text
+        elif k == "cmd":
+            text = "$ " + text
+        elif k == "note":
+            text = "# " + text
+        widest = max(widest, len(text.expandtabs(8)))
+    return widest
+
+
+def build(name, title, caption, lines, loop=16, width=None):
+    # Wide enough for the longest line rather than a round number somebody
+    # liked: a terminal whose output runs off the edge is not a terminal.
+    # The README displays every one of these at the same width, so a wider
+    # canvas simply means slightly smaller text, not a wider picture.
+    if width is None:
+        width = max(760, int(LEFT * 2 + longest(lines) * CHAR_W) + 8)
+    """lines: (kind, text) or (kind, level, text) for log lines.
+
+    kind: cmd | cont | out | log | note | blank
+    """
     height = TOP + LINE_H * len(lines) + 24
 
-    weights = [WEIGHT.get(k, 1.0) for k, _ in lines]
+    weights = [WEIGHT.get(l[0], 1.0) for l in lines]
     total = sum(weights) or 1
-    # Lines appear across the first 86% of the loop; the rest is a hold on
-    # the finished screen, so it can actually be read.
     at, acc = [], 0.0
     for w in weights:
         at.append(2 + acc / total * 84)
         acc += w
 
     css, body = [], []
-    for i, ((kind, text), start) in enumerate(zip(lines, at)):
+    for i, (line, start) in enumerate(zip(lines, at)):
+        kind = line[0]
         cls = f"l{i}"
         css.append(
             f"    .{cls} {{ animation: k{i} {loop}s linear infinite }}\n"
@@ -74,28 +106,43 @@ def build(name, title, caption, lines, loop=16, width=760):
             f"{start + 1:.1f}%,95%{{opacity:1}} 100%{{opacity:0}} }}"
         )
         y = TOP + LINE_H * i
+
         if kind == "blank":
             body.append(f'    <text class="line {cls}" x="{LEFT}" y="{y}"> </text>')
-        elif kind == "cont":
-            # A command wrapped onto a second line: no prompt, because a
-            # prompt there would read as a second command.
-            body.append(
-                f'    <text class="line {cls}" x="{LEFT}" y="{y}" '
-                f'fill="{FG}">{esc(text)}</text>'
-            )
+
         elif kind == "cmd":
             body.append(
                 f'    <text class="line {cls}" x="{LEFT}" y="{y}">'
                 f'<tspan fill="{PROMPT}" font-weight="700">$</tspan>'
-                f'<tspan fill="{FG}" dx="8">{esc(text)}</tspan></text>'
-            )
-        else:
-            body.append(
-                f'    <text class="line {cls}" x="{LEFT}" y="{y}" '
-                f'fill="{COLOURS[kind]}">{esc(text)}</text>'
+                f'<tspan fill="{FG}" dx="8">{esc(line[1])}</tspan></text>'
             )
 
-    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" width="{width}" height="{height}" font-family="{FONT}" role="img" aria-label="{esc(caption).replace(chr(160), ' ')}">
+        elif kind == "cont":
+            body.append(f'    <text class="line {cls}" x="{LEFT}" y="{y}" '
+                        f'fill="{FG}">{esc(line[1])}</text>')
+
+        elif kind == "log":
+            # exactly how syn writes it: "2026-10-19 07:42:09 [INFO] message"
+            level, text = line[1], line[2]
+            colour = ERR if level == "ERROR" else WARN if level == "WARN" else FG
+            stamp = f"2026-10-19 07:42:{STAMP[0]:02d}"
+            STAMP[0] = min(59, STAMP[0] + 3)
+            body.append(
+                f'    <text class="line {cls}" x="{LEFT}" y="{y}" fill="{colour}">'
+                f'<tspan fill="{DIM}">{esc(stamp)} [{level}]</tspan>'
+                f'<tspan dx="7">{esc(text)}</tspan></text>'
+            )
+
+        elif kind == "note":
+            # a shell comment - something you would type, not something printed
+            body.append(f'    <text class="line {cls}" x="{LEFT}" y="{y}" '
+                        f'fill="{DIM}">{esc("# " + line[1])}</text>')
+
+        else:  # out - stdout, printed plain
+            body.append(f'    <text class="line {cls}" x="{LEFT}" y="{y}" '
+                        f'fill="{FG}">{esc(line[1])}</text>')
+
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" width="{width}" height="{height}" font-family="{FONT}" role="img" aria-label="{plain(caption)}">
   <title>{title}</title>
 
   <style>
@@ -103,8 +150,8 @@ def build(name, title, caption, lines, loop=16, width=760):
     .chrome {{ fill: #161b22 }}
     .edge   {{ fill: none; stroke: #30363d; stroke-width: 1 }}
     text    {{ font-size: {SIZE}px }}
-    /* Visible by default; the keyframes do the hiding. A renderer that does
-       not animate then shows the finished screen, not an empty box. */
+    /* Visible by default; the keyframes do the hiding, so a renderer that
+       does not animate shows the finished screen and not an empty box. */
     .line   {{ opacity: 1 }}
 {chr(10).join(css)}
     @media (prefers-reduced-motion: reduce) {{
@@ -120,267 +167,270 @@ def build(name, title, caption, lines, loop=16, width=760):
   <circle cx="19" cy="16" r="5" fill="#ff5f57"/>
   <circle cx="37" cy="16" r="5" fill="#febc2e"/>
   <circle cx="55" cy="16" r="5" fill="#28c840"/>
-  <text x="{width // 2}" y="21" text-anchor="middle" fill="{DIM}" font-size="12">{esc(title).replace(chr(160), ' ')}</text>
+  <text x="{width // 2}" y="21" text-anchor="middle" fill="{DIM}" font-size="12">{plain(title)}</text>
 
   <g>
 {chr(10).join(body)}
   </g>
 </svg>
 """
-    path = os.path.join(OUT, name)
-    with open(path, "w", encoding="utf-8", newline="\n") as f:
+    with open(os.path.join(OUT, name), "w", encoding="utf-8", newline="\n") as f:
         f.write(svg)
-    return path, height
+    return height
 
 
-# --------------------------------------------------------------------------
-# The screens. Each is a real session: these are the commands as they are,
-# and the output as the tool actually prints it.
-# --------------------------------------------------------------------------
+STAMP = [9]   # the seconds counter, so timestamps advance down a screen
+
+L = lambda lvl, text: ("log", lvl, text)
+C = lambda text: ("cmd", text)
+O = lambda text: ("out", text)
+N = lambda text: ("note", text)
+B = ("blank", "")
+
 
 SCREENS = [
     ("demo.svg", "syn — two machines, one history",
      "Switching syn on, asking what it is doing, then a push arriving and the bot restarting", [
-        ("cmd",  "syn auto on"),
-        ("ok",   "  login     on   sync once when you log in"),
-        ("ok",   "  watch     on   then keep syncing every 10 minutes"),
-        ("ok",   "  shutdown  on   publish before the machine goes down"),
-        ("blank", ""),
-        ("cmd",  "syn status all"),
-        ("info", "  watcher:  running (pid 26676), checked 1 min ago"),
-        ("dim",  "            next look at my-bot in 9 min"),
-        ("blank", ""),
-        ("out",  "my-bot  (/srv/my-bot)"),
-        ("dim",  "  branch:    main -> origin/main"),
-        ("ok",   "  local:     clean"),
-        ("dim",  "  vs remote: 0 ahead, 0 behind"),
-        ("dim",  "  last sync: 1 min ago"),
-        ("blank", ""),
-        ("dim",  "... bot.py pushed from the laptop ..."),
-        ("info", "my-bot: pulled 1 commit from origin/main"),
-        ("dim",  "                 modified  bot.py"),
-        ("info", "my-bot: the code changed - restarting python bot.py"),
-        ("ok",   "my-bot | bot v2 running"),
+        C("syn auto on"),
+        O("  login      on    sync once when you log in"),
+        O("  watch      on    then keep syncing every 10 minutes"),
+        O("  shutdown   on    publish before the machine goes down, and hold it until done"),
+        B,
+        C("syn status my-notes"),
+        O("  watcher:  running (pid 26676), started 2 h ago, checked 1 min ago"),
+        O("            next look at my-notes in 9 min"),
+        B,
+        O("my-notes  (C:\\Users\\me\\my-notes)"),
+        O("  branch:   main -> origin/main"),
+        O("  local:    clean"),
+        O("  vs remote: 0 ahead, 0 behind"),
+        O("  last sync: 2026-10-19 07:42:37 (just now)"),
+        B,
+        N("todo.md pushed from the laptop; the watcher picks it up"),
+        L("INFO", "my-notes: pulled 1 commit from origin/main"),
+        O("           down  a91f3c2  notes from the laptop"),
+        O("                 modified  todo.md"),
      ]),
 
     ("t-quickstart.svg", "the first five minutes",
-     "Signing in, adding a repository, switching automatic syncing on", [
-        ("cmd",  "syn auth login --pat ghp_..."),
-        ("ok",   "  logged in as Falcon (FalconTechDev)"),
-        ("blank", ""),
-        ("cmd",  "syn repo add me/my-notes"),
-        ("dim",  "  cloning into C:\\Users\\me\\my-notes ..."),
-        ("ok",   "  my-notes: tracking origin/main, every 10 minutes"),
-        ("blank", ""),
-        ("cmd",  "syn auto on"),
-        ("ok",   "  login     on   sync once when you log in"),
-        ("ok",   "  watch     on   then keep syncing every 10 minutes"),
-        ("ok",   "  shutdown  on   publish before the machine goes down"),
-        ("blank", ""),
-        ("dim",  "that is a complete setup - nothing else is required"),
+     "Registering a repository and switching automatic syncing on", [
+        C("syn auth login --pat ghp_..."),
+        L("INFO", "logged in as FalconTechDev"),
+        B,
+        C("syn init"),
+        L("INFO", "registered \"my-notes\" -> origin (https://github.com/me/my-notes.git)"),
+        L("INFO", "next: `syn auto on` to keep it in sync by itself"),
+        B,
+        C("syn auto on"),
+        O("  login      on    sync once when you log in"),
+        O("  watch      on    then keep syncing every 10 minutes"),
+        O("  shutdown   on    publish before the machine goes down, and hold it until done"),
+        B,
+        O("  Repositories"),
+        O("    my-notes   every 10 minutes"),
      ]),
 
     ("t-repos.svg", "tracking repositories",
-     "Registering a clone you have, cloning a new one, listing and removing", [
-        ("cmd",  "syn init"),
-        ("ok",   "  registered \"notes\" -> origin (github.com/me/notes)"),
-        ("blank", ""),
-        ("cmd",  "syn repo add me/my-bot --path /srv/my-bot"),
-        ("ok",   "  my-bot: tracking origin/main"),
-        ("blank", ""),
-        ("cmd",  "syn repo add https://gitlab.com/group/thing.git"),
-        ("dim",  "  any git remote works - git handles the credentials"),
-        ("blank", ""),
-        ("cmd",  "syn ls"),
-        ("out",  "  notes     every 10 minutes   origin/main"),
-        ("dim",  "            C:\\Users\\me\\notes"),
-        ("out",  "  my-bot    every 1 minute     origin/main"),
-        ("dim",  "            /srv/my-bot"),
-        ("blank", ""),
-        ("cmd",  "syn remove notes"),
-        ("dim",  "  stopped tracking \"notes\" (files untouched)"),
+     "Registering a clone you have, listing what is tracked, and removing one", [
+        C("syn init"),
+        L("INFO", "registered \"my-notes\" -> origin (https://github.com/me/my-notes.git)"),
+        L("INFO", "next: `syn auto on` to keep it in sync by itself"),
+        B,
+        C("syn ls"),
+        O("  my-notes  every 10 minutes  origin/(current branch)"),
+        O("            C:\\Users\\me\\my-notes"),
+        O("  my-bot    every 1 minute    origin/(current branch)"),
+        O("            /srv/my-bot"),
+        B,
+        O("  Name one of these, or \"all\", when you pull, push or sync."),
+        B,
+        C("syn remove my-notes"),
+        L("INFO", "stopped tracking \"my-notes\" (files untouched)"),
      ]),
 
     ("t-sync.svg", "syncing by hand",
-     "pull, push and sync, with a dry run first", [
-        ("cmd",  "syn sync my-notes --dry-run"),
-        ("dim",  "my-notes"),
-        ("dim",  "  would pull 2 commits from origin/main"),
-        ("dim",  "  would commit 3 files and push them"),
-        ("blank", ""),
-        ("cmd",  "syn sync my-notes"),
-        ("info", "my-notes: pulled 2 commits from origin/main"),
-        ("dim",  "           down  a91f3c2  notes from the laptop"),
-        ("dim",  "                 modified  todo.md"),
-        ("info", "my-notes: committed local changes, pushed 1 commit"),
-        ("dim",  "                 modified  journal.md"),
-        ("dim",  "                 new       ideas.md"),
-        ("blank", ""),
-        ("cmd",  "syn diff my-notes"),
-        ("ok",   "  nothing uncommitted - everything is published"),
+     "A dry run first, then the real sync, then checking nothing is left", [
+        C("syn sync my-notes --dry-run"),
+        O("my-notes"),
+        O("  would commit 2 files:"),
+        O("      modified  todo.md"),
+        O("      new       ideas.md"),
+        B,
+        C("syn sync my-notes"),
+        L("INFO", "my-notes: committed local changes, pushed 1 commit to origin/main"),
+        O("           up    dcde8ff  sync: auto-commit from desktop at 2026-10-19 07:42"),
+        O("                 modified  todo.md"),
+        O("                 new       ideas.md"),
+        B,
+        C("syn diff my-notes"),
+        O("(nothing uncommitted)"),
      ]),
 
     ("t-auto.svg", "automatic syncing",
-     "The three switches, a per-repository exception, and a pause", [
-        ("cmd",  "syn auto"),
-        ("ok",   "  login     on    sync once when you log in"),
-        ("ok",   "  watch     on    then keep syncing every 10 minutes"),
-        ("ok",   "  shutdown  on    publish before the machine goes down"),
-        ("blank", ""),
-        ("cmd",  "syn auto watch 30m"),
-        ("ok",   "  checked every 30 minutes from now on"),
-        ("blank", ""),
-        ("cmd",  "syn auto big-media off"),
-        ("dim",  "  big-media: left out of automatic syncing"),
-        ("dim",  "             commands you type still reach it"),
-        ("blank", ""),
-        ("cmd",  "syn pause my-bot 2h"),
-        ("warn", "  my-bot: paused until 16:42"),
-        ("dim",  "          the running watcher notices without a restart"),
+     "The three switches, the repositories they cover, and a pause", [
+        C("syn auto"),
+        O("  login      on    sync once when you log in"),
+        O("  watch      on    then keep syncing every 10 minutes"),
+        O("  shutdown   on    publish before the machine goes down, and hold it until done"),
+        B,
+        O("  Repositories"),
+        O("    my-notes   every 10 minutes"),
+        O("    my-bot     every 1 minute"),
+        B,
+        O("  All three:      syn auto on|off"),
+        O("  One at a time:  syn auto login|watch|shutdown on|off"),
+        O("  How often:      syn auto watch 30m"),
+        O("  One repo:       syn auto <repo> on|off"),
+        B,
+        C("syn pause my-bot 2h"),
+        L("INFO", "my-bot: left out of automatic syncing until 09:42 on 19 Oct"),
+        O("  Commands you type yourself still work as normal."),
      ]),
 
     ("t-files.svg", "part of a repository",
-     "Syncing only one folder, and keeping a local file out of commits", [
-        ("cmd",  "syn files include big-repo \"src/**\""),
-        ("ok",   "  big-repo: include pattern \"src/**\" added"),
-        ("dim",  "            everything else left the folder, and stays"),
-        ("dim",  "            on the remote - not committed as deleted"),
-        ("blank", ""),
-        ("cmd",  "syn files big-repo"),
-        ("out",  "  active sparse-checkout:"),
-        ("info", "  src/**"),
-        ("blank", ""),
-        ("cmd",  "syn ignore my-bot \"*.env\""),
-        ("ok",   "  my-bot: *.env stays on disk, out of automatic commits"),
-        ("blank", ""),
-        ("cmd",  "syn files clear big-repo"),
-        ("dim",  "  big-repo: the whole repository again"),
+     "Syncing only one folder, and keeping a local file out of automatic commits", [
+        C("syn files include big-repo \"src/**\""),
+        L("INFO", "big-repo: include pattern \"src/**\" added"),
+        B,
+        C("syn files big-repo"),
+        O("big-repo:"),
+        O("  include:"),
+        O("    src/**"),
+        O("  exclude:"),
+        B,
+        O("  active sparse-checkout:"),
+        O("  src/**"),
+        B,
+        C("syn ignore my-bot \"*.env\""),
+        L("INFO", "my-bot: *.env held back from automatic commits"),
+        B,
+        C("syn files clear big-repo"),
+        L("INFO", "big-repo: all file rules cleared (all files will be synced)"),
      ]),
 
     ("t-conflict.svg", "a conflict, start to finish",
-     "A sync stops on a conflict; you edit the files; resolve finishes it", [
-        ("cmd",  "syn sync my-notes"),
-        ("err",  "my-notes: CONFLICT on main (todo.md)"),
-        ("dim",  "          backup branch syn/backup/desktop/main/20261019-1442"),
-        ("warn", "          syncing is on hold until you say what to do"),
-        ("blank", ""),
-        ("cmd",  "syn sync my-notes"),
-        ("err",  "my-notes: FAILED - a conflict from 14:42 is still open"),
-        ("dim",  "          files: todo.md"),
-        ("dim",  "          edit them, then:  syn resolve my-notes"),
-        ("blank", ""),
-        ("dim",  "... you edit todo.md and delete the <<<<<<< lines ..."),
-        ("blank", ""),
-        ("cmd",  "syn resolve my-notes"),
-        ("ok",   "my-notes: markers are gone from todo.md"),
-        ("info", "my-notes: pushed 1 commit to origin/main"),
+     "A sync stops on a conflict, the next one refuses, and resolve finishes it", [
+        C("syn sync my-notes"),
+        L("ERROR", "my-notes: conflict on main (your uncommitted edits conflict with the pulled changes)"),
+        L("ERROR", "1 repository needs attention - see `syn status`"),
+        B,
+        C("syn sync my-notes"),
+        L("ERROR", "my-notes: FAILED - a conflict from 2026-10-19 07:43 is still open, so syncing is on hold"),
+        O("        files: todo.md"),
+        O("        edit them, then:  syn resolve my-notes"),
+        O("        or pick a side:   syn resolve my-notes --ours | --theirs"),
+        O("        your work before the conflict is on syn/backup/desktop/main/20261019-074334"),
+        B,
+        N("you edit todo.md and delete the <<<<<<< ======= >>>>>>> lines"),
+        B,
+        C("syn resolve my-notes"),
+        L("INFO", "my-notes: markers are gone from todo.md"),
+        L("INFO", "my-notes: committed local changes, pushed 1 commit to origin/main"),
      ]),
 
     ("t-hooks.svg", "hooks",
-     "A hook that only fires for the files it cares about, and what it is told", [
-        ("cmd",  "syn hook add my-bot after-pull --paths \"src/**,go.mod\" \\"),
+     "A hook that only fires for the files it cares about, and what hook ls shows", [
+        C("syn hook add my-bot after-pull --paths \"src/**,go.mod\" \\"),
         ("cont", "      \"systemctl restart my-bot\""),
-        ("ok",   "  my-bot: after-pull hook added, only for src/**, go.mod"),
-        ("blank", ""),
-        ("cmd",  "syn hook ls"),
-        ("out",  "my-bot  (timeout 300s, rolls back a pull if the hook fails)"),
-        ("dim",  "  after-pull   systemctl restart my-bot"),
-        ("dim",  "                 only when these change: src/**, go.mod"),
-        ("blank", ""),
-        ("dim",  "the hook is told what happened:"),
-        ("info", "  SYN_EVENT=after-pull   SYN_REPO=my-bot"),
-        ("info", "  SYN_COMMIT=9f31a0c     SYN_PREV_COMMIT=4ab77e1"),
-        ("info", "  SYN_CHANGED_FILES      one path per line"),
-        ("info", "  SYN_CHANGED_COUNT=2"),
-        ("blank", ""),
-        ("dim",  "commands live on this machine and never travel through git"),
+        L("INFO", "my-bot: after-pull hook added, only for src/**, go.mod"),
+        B,
+        C("syn hook rollback my-bot on"),
+        L("INFO", "my-bot: a failing after-pull hook will put the repository back"),
+        B,
+        C("syn hook ls"),
+        O("my-bot  (timeout 300s, rolls back a pull if the hook fails)"),
+        O("  after-pull   systemctl restart my-bot"),
+        O("                 only when these change: src/**, go.mod"),
+        B,
+        N("the command lives here, never in git - a push cannot change it"),
      ]),
 
     ("t-server.svg", "a server, set up once",
-     "Deploy target, CI gate, the program syn keeps running, and the boot service", [
-        ("cmd",  "syn repo add me/my-bot --path /srv/my-bot"),
-        ("ok",   "  my-bot: tracking origin/main"),
-        ("blank", ""),
-        ("cmd",  "syn deploy my-bot on"),
-        ("ok",   "  my-bot: deploy target - changes come down, nothing goes up"),
-        ("dim",  "          logs and caches it writes stay on this machine"),
-        ("blank", ""),
-        ("cmd",  "syn set my-bot require_checks on"),
-        ("ok",   "  my-bot.require_checks = \"on\""),
-        ("blank", ""),
-        ("cmd",  "syn app my-bot -- python bot.py"),
-        ("ok",   "  my-bot: runs python bot.py"),
-        ("dim",  "          restarted whenever an update arrives"),
-        ("blank", ""),
-        ("cmd",  "sudo syn service install --as deploy"),
-        ("ok",   "  synchronize.service is running as deploy"),
-        ("dim",  "  watch it with:  journalctl -u synchronize -f"),
+     "Deploy target, CI gate, and the program syn keeps running", [
+        C("syn deploy my-bot on"),
+        L("INFO", "my-bot: deploy target - syncing brings changes down and sends nothing up"),
+        L("INFO", "       anything written there stays on this machine, uncommitted"),
+        B,
+        C("syn set my-bot require_checks on"),
+        L("INFO", "my-bot.require_checks = \"on\""),
+        B,
+        C("syn app my-bot -- python bot.py"),
+        L("INFO", "my-bot: runs python bot.py"),
+        L("INFO", "       restarted whenever an update arrives"),
+        L("INFO", "       the watcher starts it:  syn watch my-bot"),
+        L("INFO", "       or try it here first:   syn app my-bot start"),
+        B,
+        C("sudo syn service install --as deploy"),
+        L("INFO", "wrote /etc/systemd/system/synchronize.service"),
+        L("INFO", "synchronize.service is running as deploy, and will come back after a reboot"),
      ]),
 
     ("t-scripting.svg", "for scripts",
-     "JSON output, the porcelain form, and exit codes that mean something", [
-        ("cmd",  "syn status all --porcelain"),
-        ("out",  "my-notes  ok        0  0  0  main  /home/me/notes"),
-        ("out",  "my-bot    conflict  0  2  1  main  /srv/my-bot"),
-        ("blank", ""),
-        ("cmd",  "syn status all --json | jq '.[] | select(.conflict)'"),
-        ("out",  "{"),
-        ("out",  "  \"name\": \"my-bot\","),
-        ("out",  "  \"branch\": \"main\","),
-        ("out",  "  \"behind\": 2,"),
-        ("out",  "  \"conflict\": \"local commits conflict with the remote\""),
-        ("out",  "}"),
-        ("blank", ""),
-        ("cmd",  "syn status all > state.json || notify \"syn needs attention\""),
-        ("err",  "  my-bot has a conflict open - run `syn resolve`"),
-        ("warn", "  exit 1"),
-        ("blank", ""),
-        ("dim",  "ahead or behind is not a failure - that is the normal state"),
+     "The porcelain form, JSON output, and an exit code a script can act on", [
+        C("syn status all --porcelain"),
+        O("my-notes\tok\t0\t0\t0\tmain\tC:\\Users\\me\\my-notes"),
+        B,
+        C("syn status all --json"),
+        O("["),
+        O("  {"),
+        O("    \"name\": \"my-notes\","),
+        O("    \"path\": \"C:\\\\Users\\\\me\\\\my-notes\","),
+        O("    \"branch\": \"main\","),
+        O("    \"tracking\": \"origin/main\","),
+        O("    \"ahead\": 0,"),
+        O("    \"behind\": 0,"),
+        O("    \"dirty\": false,"),
+        O("    \"changed\": 0,"),
+        O("    \"auto\": true,"),
+        O("    \"last_sync\": \"2026-10-19T04:42:37Z\""),
+        O("  }"),
+        O("]"),
+        B,
+        N("ahead or behind is not a failure; a conflict or an unreadable repo is"),
      ]),
 
     ("t-alerts.svg", "alerts",
-     "Setting up Telegram alerts and checking they arrive", [
-        ("cmd",  "syn config telegram 8012345678:AAE... 123456789"),
-        ("ok",   "  Telegram alerts will go to chat 123456789"),
-        ("dim",  "         check it works:  syn config test"),
-        ("blank", ""),
-        ("cmd",  "syn config telegram"),
-        ("out",  "Telegram alerts go to chat 123456789"),
-        ("dim",  "  sending on:  conflict"),
-        ("dim",  "  switch off:  syn config telegram off"),
-        ("blank", ""),
-        ("cmd",  "syn config test"),
-        ("info", "  sending a test alert..."),
-        ("ok",   "  Sent. A desktop notification should have appeared."),
-        ("dim",  "  Telegram: check chat 123456789."),
-        ("blank", ""),
-        ("dim",  "the token is a password for the bot - it is never printed back"),
+     "Setting up Telegram alerts and sending a test one", [
+        C("syn config telegram 8012345678:AAE... 123456789"),
+        L("INFO", "Telegram alerts will go to chat 123456789"),
+        L("INFO", "       check it works:  syn config test"),
+        B,
+        C("syn config telegram"),
+        O("Telegram alerts go to chat 123456789"),
+        O("  sending on:  conflict"),
+        O("  test it:     syn config test"),
+        O("  switch off:  syn config telegram off"),
+        B,
+        C("syn config test"),
+        L("INFO", "sending a test alert..."),
+        B,
+        O("  Sent. A desktop notification should have appeared just now."),
+        O("  Telegram: check chat 123456789."),
+        O("  If nothing arrived, the log says why:  syn log 20"),
      ]),
 
     ("t-doctor.svg", "checking on it",
-     "doctor, and the log narrowed to one repository", [
-        ("cmd",  "syn doctor"),
-        ("out",  "synchronize v1.3.0 on windows/amd64"),
-        ("dim",  "  git:        git version 2.54.0"),
-        ("dim",  "  home:       C:\\Users\\me\\.synchronize"),
-        ("dim",  "  repos:      4 registered"),
-        ("ok",   "  background: ON - syncs at login, publishes before shutdown"),
-        ("blank", ""),
-        ("err",  "  1 repository needs attention:"),
-        ("err",  "my-bot: /srv/my-bot no longer exists"),
-        ("dim",  "        it may be on a drive that is not plugged in."),
-        ("dim",  "        if it is gone for good:  syn remove my-bot"),
-        ("warn", "  exit 1"),
-        ("blank", ""),
-        ("cmd",  "syn log my-notes 4"),
-        ("dim",  "14:31:02 [INFO] my-notes: pulled 1 commit from origin/main"),
-        ("dim",  "14:41:07 [INFO] my-notes: already up to date"),
+     "doctor on a healthy setup, and the log narrowed to one repository", [
+        C("syn doctor"),
+        O("synchronize v1.3.0 on windows/amd64"),
+        O("  git:        git version 2.54.0.windows.1"),
+        O("  home:       C:/Users/me/.synchronize"),
+        O("  repos:      2 registered"),
+        O("  background: ON - syncs at login, publishes before shutdown"),
+        B,
+        O("  every repository looks healthy"),
+        B,
+        C("syn log my-notes 3"),
+        L("INFO", "my-notes: pulled 1 commit from origin/main"),
+        L("INFO", "my-notes: already up to date with origin/main"),
+        L("INFO", "my-notes: committed local changes, pushed 1 commit to origin/main"),
      ]),
 ]
 
 
 if __name__ == "__main__":
     for name, title, caption, lines in SCREENS:
-        path, height = build(name, title, caption, lines)
-        print(f"  {os.path.basename(path):<22} {len(lines):>2} lines   {height:>3}px   "
-              f"{os.path.getsize(path) // 1024} KB")
+        STAMP[0] = 9
+        h = build(name, title, caption, lines)
+        print(f"  {name:<22} {len(lines):>2} lines   {h:>3}px   "
+              f"{os.path.getsize(os.path.join(OUT, name)) // 1024} KB")

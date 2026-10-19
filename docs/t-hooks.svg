@@ -1,55 +1,49 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 390" width="760" height="390" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" role="img" aria-label="A hook that only fires for the files it cares about, and what it is told">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 333" width="760" height="333" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" role="img" aria-label="A hook that only fires for the files it cares about, and what hook ls shows">
   <title>hooks</title>
 
   <style>
     .bg     { fill: #0d1117 }
     .chrome { fill: #161b22 }
     .edge   { fill: none; stroke: #30363d; stroke-width: 1 }
-    text    { font-size: 13.5px }
-    /* Visible by default; the keyframes do the hiding. A renderer that does
-       not animate then shows the finished screen, not an empty box. */
+    text    { font-size: 13px }
+    /* Visible by default; the keyframes do the hiding, so a renderer that
+       does not animate shows the finished screen and not an empty box. */
     .line   { opacity: 1 }
     .l0 { animation: k0 16s linear infinite }
     @keyframes k0 { 0%,2.0%{opacity:0} 3.0%,95%{opacity:1} 100%{opacity:0} }
     .l1 { animation: k1 16s linear infinite }
-    @keyframes k1 { 0%,14.1%{opacity:0} 15.1%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k1 { 0%,15.4%{opacity:0} 16.4%,95%{opacity:1} 100%{opacity:0} }
     .l2 { animation: k2 16s linear infinite }
-    @keyframes k2 { 0%,15.7%{opacity:0} 16.7%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k2 { 0%,17.1%{opacity:0} 18.1%,95%{opacity:1} 100%{opacity:0} }
     .l3 { animation: k3 16s linear infinite }
-    @keyframes k3 { 0%,20.7%{opacity:0} 21.7%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k3 { 0%,22.7%{opacity:0} 23.7%,95%{opacity:1} 100%{opacity:0} }
     .l4 { animation: k4 16s linear infinite }
-    @keyframes k4 { 0%,23.3%{opacity:0} 24.3%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k4 { 0%,25.5%{opacity:0} 26.5%,95%{opacity:1} 100%{opacity:0} }
     .l5 { animation: k5 16s linear infinite }
-    @keyframes k5 { 0%,35.4%{opacity:0} 36.4%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k5 { 0%,39.0%{opacity:0} 40.0%,95%{opacity:1} 100%{opacity:0} }
     .l6 { animation: k6 16s linear infinite }
-    @keyframes k6 { 0%,40.5%{opacity:0} 41.5%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k6 { 0%,44.6%{opacity:0} 45.6%,95%{opacity:1} 100%{opacity:0} }
     .l7 { animation: k7 16s linear infinite }
-    @keyframes k7 { 0%,45.5%{opacity:0} 46.5%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k7 { 0%,47.4%{opacity:0} 48.4%,95%{opacity:1} 100%{opacity:0} }
     .l8 { animation: k8 16s linear infinite }
-    @keyframes k8 { 0%,50.6%{opacity:0} 51.6%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k8 { 0%,60.8%{opacity:0} 61.8%,95%{opacity:1} 100%{opacity:0} }
     .l9 { animation: k9 16s linear infinite }
-    @keyframes k9 { 0%,53.1%{opacity:0} 54.1%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k9 { 0%,66.4%{opacity:0} 67.4%,95%{opacity:1} 100%{opacity:0} }
     .l10 { animation: k10 16s linear infinite }
-    @keyframes k10 { 0%,58.2%{opacity:0} 59.2%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k10 { 0%,72.0%{opacity:0} 73.0%,95%{opacity:1} 100%{opacity:0} }
     .l11 { animation: k11 16s linear infinite }
-    @keyframes k11 { 0%,63.2%{opacity:0} 64.2%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k11 { 0%,77.6%{opacity:0} 78.6%,95%{opacity:1} 100%{opacity:0} }
     .l12 { animation: k12 16s linear infinite }
-    @keyframes k12 { 0%,68.3%{opacity:0} 69.3%,95%{opacity:1} 100%{opacity:0} }
-    .l13 { animation: k13 16s linear infinite }
-    @keyframes k13 { 0%,73.3%{opacity:0} 74.3%,95%{opacity:1} 100%{opacity:0} }
-    .l14 { animation: k14 16s linear infinite }
-    @keyframes k14 { 0%,78.4%{opacity:0} 79.4%,95%{opacity:1} 100%{opacity:0} }
-    .l15 { animation: k15 16s linear infinite }
-    @keyframes k15 { 0%,80.9%{opacity:0} 81.9%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k12 { 0%,80.4%{opacity:0} 81.4%,95%{opacity:1} 100%{opacity:0} }
     @media (prefers-reduced-motion: reduce) {
       .line { animation: none; opacity: 1 }
     }
   </style>
 
-  <rect class="bg" width="760" height="390" rx="10"/>
+  <rect class="bg" width="760" height="333" rx="10"/>
   <rect class="chrome" width="760" height="32" rx="10"/>
   <rect class="chrome" y="22" width="760" height="10"/>
-  <rect class="edge" x="0.5" y="0.5" width="759" height="389" rx="10"/>
+  <rect class="edge" x="0.5" y="0.5" width="759" height="332" rx="10"/>
 
   <circle cx="19" cy="16" r="5" fill="#ff5f57"/>
   <circle cx="37" cy="16" r="5" fill="#febc2e"/>
@@ -59,19 +53,16 @@
   <g>
     <text class="line l0" x="22" y="62"><tspan fill="#a371f7" font-weight="700">$</tspan><tspan fill="#c9d1d9" dx="8">syn hook add my-bot after-pull --paths "src/**,go.mod" \</tspan></text>
     <text class="line l1" x="22" y="81" fill="#c9d1d9">      "systemctl restart my-bot"</text>
-    <text class="line l2" x="22" y="100" fill="#3fb950">  my-bot: after-pull hook added, only for src/**, go.mod</text>
+    <text class="line l2" x="22" y="100" fill="#c9d1d9"><tspan fill="#8b949e">2026-10-19 07:42:09 [INFO]</tspan><tspan dx="7">my-bot: after-pull hook added, only for src/**, go.mod</tspan></text>
     <text class="line l3" x="22" y="119"> </text>
-    <text class="line l4" x="22" y="138"><tspan fill="#a371f7" font-weight="700">$</tspan><tspan fill="#c9d1d9" dx="8">syn hook ls</tspan></text>
-    <text class="line l5" x="22" y="157" fill="#c9d1d9">my-bot  (timeout 300s, rolls back a pull if the hook fails)</text>
-    <text class="line l6" x="22" y="176" fill="#8b949e">  after-pull   systemctl restart my-bot</text>
-    <text class="line l7" x="22" y="195" fill="#8b949e">                 only when these change: src/**, go.mod</text>
-    <text class="line l8" x="22" y="214"> </text>
-    <text class="line l9" x="22" y="233" fill="#8b949e">the hook is told what happened:</text>
-    <text class="line l10" x="22" y="252" fill="#58a6ff">  SYN_EVENT=after-pull   SYN_REPO=my-bot</text>
-    <text class="line l11" x="22" y="271" fill="#58a6ff">  SYN_COMMIT=9f31a0c     SYN_PREV_COMMIT=4ab77e1</text>
-    <text class="line l12" x="22" y="290" fill="#58a6ff">  SYN_CHANGED_FILES      one path per line</text>
-    <text class="line l13" x="22" y="309" fill="#58a6ff">  SYN_CHANGED_COUNT=2</text>
-    <text class="line l14" x="22" y="328"> </text>
-    <text class="line l15" x="22" y="347" fill="#8b949e">commands live on this machine and never travel through git</text>
+    <text class="line l4" x="22" y="138"><tspan fill="#a371f7" font-weight="700">$</tspan><tspan fill="#c9d1d9" dx="8">syn hook rollback my-bot on</tspan></text>
+    <text class="line l5" x="22" y="157" fill="#c9d1d9"><tspan fill="#8b949e">2026-10-19 07:42:12 [INFO]</tspan><tspan dx="7">my-bot: a failing after-pull hook will put the repository back</tspan></text>
+    <text class="line l6" x="22" y="176"> </text>
+    <text class="line l7" x="22" y="195"><tspan fill="#a371f7" font-weight="700">$</tspan><tspan fill="#c9d1d9" dx="8">syn hook ls</tspan></text>
+    <text class="line l8" x="22" y="214" fill="#c9d1d9">my-bot  (timeout 300s, rolls back a pull if the hook fails)</text>
+    <text class="line l9" x="22" y="233" fill="#c9d1d9">  after-pull   systemctl restart my-bot</text>
+    <text class="line l10" x="22" y="252" fill="#c9d1d9">                 only when these change: src/**, go.mod</text>
+    <text class="line l11" x="22" y="271"> </text>
+    <text class="line l12" x="22" y="290" fill="#8b949e"># the command lives here, never in git - a push cannot change it</text>
   </g>
 </svg>

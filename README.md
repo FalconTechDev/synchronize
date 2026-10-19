@@ -631,6 +631,16 @@ without touching your real setup.
 
 ---
 
+## About the pictures
+
+Every terminal on this page shows output captured from a running binary, not
+written by hand — including the timestamps and `[INFO]` prefixes syn really
+puts on its log lines. Hostnames, paths and repository names are swapped for
+neutral ones; nothing else is. [docs/VERIFY.md](docs/VERIFY.md) lists what was
+wrong with the first attempt and how to check them again.
+
+---
+
 ## Full reference
 
 Everything above is the common path. [**GUIDE.md**](GUIDE.md) has the complete

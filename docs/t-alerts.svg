@@ -1,53 +1,55 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 371" width="760" height="371" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" role="img" aria-label="Setting up Telegram alerts and checking they arrive">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 390" width="760" height="390" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" role="img" aria-label="Setting up Telegram alerts and sending a test one">
   <title>alerts</title>
 
   <style>
     .bg     { fill: #0d1117 }
     .chrome { fill: #161b22 }
     .edge   { fill: none; stroke: #30363d; stroke-width: 1 }
-    text    { font-size: 13.5px }
-    /* Visible by default; the keyframes do the hiding. A renderer that does
-       not animate then shows the finished screen, not an empty box. */
+    text    { font-size: 13px }
+    /* Visible by default; the keyframes do the hiding, so a renderer that
+       does not animate shows the finished screen and not an empty box. */
     .line   { opacity: 1 }
     .l0 { animation: k0 16s linear infinite }
     @keyframes k0 { 0%,2.0%{opacity:0} 3.0%,95%{opacity:1} 100%{opacity:0} }
     .l1 { animation: k1 16s linear infinite }
-    @keyframes k1 { 0%,13.4%{opacity:0} 14.4%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k1 { 0%,12.8%{opacity:0} 13.8%,95%{opacity:1} 100%{opacity:0} }
     .l2 { animation: k2 16s linear infinite }
-    @keyframes k2 { 0%,18.1%{opacity:0} 19.1%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k2 { 0%,17.3%{opacity:0} 18.3%,95%{opacity:1} 100%{opacity:0} }
     .l3 { animation: k3 16s linear infinite }
-    @keyframes k3 { 0%,22.9%{opacity:0} 23.9%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k3 { 0%,21.8%{opacity:0} 22.8%,95%{opacity:1} 100%{opacity:0} }
     .l4 { animation: k4 16s linear infinite }
-    @keyframes k4 { 0%,25.3%{opacity:0} 26.3%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k4 { 0%,24.0%{opacity:0} 25.0%,95%{opacity:1} 100%{opacity:0} }
     .l5 { animation: k5 16s linear infinite }
-    @keyframes k5 { 0%,36.6%{opacity:0} 37.6%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k5 { 0%,34.8%{opacity:0} 35.8%,95%{opacity:1} 100%{opacity:0} }
     .l6 { animation: k6 16s linear infinite }
-    @keyframes k6 { 0%,41.4%{opacity:0} 42.4%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k6 { 0%,39.3%{opacity:0} 40.3%,95%{opacity:1} 100%{opacity:0} }
     .l7 { animation: k7 16s linear infinite }
-    @keyframes k7 { 0%,46.1%{opacity:0} 47.1%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k7 { 0%,43.8%{opacity:0} 44.8%,95%{opacity:1} 100%{opacity:0} }
     .l8 { animation: k8 16s linear infinite }
-    @keyframes k8 { 0%,50.9%{opacity:0} 51.9%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k8 { 0%,48.3%{opacity:0} 49.3%,95%{opacity:1} 100%{opacity:0} }
     .l9 { animation: k9 16s linear infinite }
-    @keyframes k9 { 0%,53.3%{opacity:0} 54.3%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k9 { 0%,52.8%{opacity:0} 53.8%,95%{opacity:1} 100%{opacity:0} }
     .l10 { animation: k10 16s linear infinite }
-    @keyframes k10 { 0%,64.6%{opacity:0} 65.6%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k10 { 0%,55.0%{opacity:0} 56.0%,95%{opacity:1} 100%{opacity:0} }
     .l11 { animation: k11 16s linear infinite }
-    @keyframes k11 { 0%,69.4%{opacity:0} 70.4%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k11 { 0%,65.8%{opacity:0} 66.8%,95%{opacity:1} 100%{opacity:0} }
     .l12 { animation: k12 16s linear infinite }
-    @keyframes k12 { 0%,74.1%{opacity:0} 75.1%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k12 { 0%,70.3%{opacity:0} 71.3%,95%{opacity:1} 100%{opacity:0} }
     .l13 { animation: k13 16s linear infinite }
-    @keyframes k13 { 0%,78.9%{opacity:0} 79.9%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k13 { 0%,72.5%{opacity:0} 73.5%,95%{opacity:1} 100%{opacity:0} }
     .l14 { animation: k14 16s linear infinite }
-    @keyframes k14 { 0%,81.3%{opacity:0} 82.3%,95%{opacity:1} 100%{opacity:0} }
+    @keyframes k14 { 0%,77.0%{opacity:0} 78.0%,95%{opacity:1} 100%{opacity:0} }
+    .l15 { animation: k15 16s linear infinite }
+    @keyframes k15 { 0%,81.5%{opacity:0} 82.5%,95%{opacity:1} 100%{opacity:0} }
     @media (prefers-reduced-motion: reduce) {
       .line { animation: none; opacity: 1 }
     }
   </style>
 
-  <rect class="bg" width="760" height="371" rx="10"/>
+  <rect class="bg" width="760" height="390" rx="10"/>
   <rect class="chrome" width="760" height="32" rx="10"/>
   <rect class="chrome" y="22" width="760" height="10"/>
-  <rect class="edge" x="0.5" y="0.5" width="759" height="370" rx="10"/>
+  <rect class="edge" x="0.5" y="0.5" width="759" height="389" rx="10"/>
 
   <circle cx="19" cy="16" r="5" fill="#ff5f57"/>
   <circle cx="37" cy="16" r="5" fill="#febc2e"/>
@@ -56,19 +58,20 @@
 
   <g>
     <text class="line l0" x="22" y="62"><tspan fill="#a371f7" font-weight="700">$</tspan><tspan fill="#c9d1d9" dx="8">syn config telegram 8012345678:AAE... 123456789</tspan></text>
-    <text class="line l1" x="22" y="81" fill="#3fb950">  Telegram alerts will go to chat 123456789</text>
-    <text class="line l2" x="22" y="100" fill="#8b949e">         check it works:  syn config test</text>
+    <text class="line l1" x="22" y="81" fill="#c9d1d9"><tspan fill="#8b949e">2026-10-19 07:42:09 [INFO]</tspan><tspan dx="7">Telegram alerts will go to chat 123456789</tspan></text>
+    <text class="line l2" x="22" y="100" fill="#c9d1d9"><tspan fill="#8b949e">2026-10-19 07:42:12 [INFO]</tspan><tspan dx="7">       check it works:  syn config test</tspan></text>
     <text class="line l3" x="22" y="119"> </text>
     <text class="line l4" x="22" y="138"><tspan fill="#a371f7" font-weight="700">$</tspan><tspan fill="#c9d1d9" dx="8">syn config telegram</tspan></text>
     <text class="line l5" x="22" y="157" fill="#c9d1d9">Telegram alerts go to chat 123456789</text>
-    <text class="line l6" x="22" y="176" fill="#8b949e">  sending on:  conflict</text>
-    <text class="line l7" x="22" y="195" fill="#8b949e">  switch off:  syn config telegram off</text>
-    <text class="line l8" x="22" y="214"> </text>
-    <text class="line l9" x="22" y="233"><tspan fill="#a371f7" font-weight="700">$</tspan><tspan fill="#c9d1d9" dx="8">syn config test</tspan></text>
-    <text class="line l10" x="22" y="252" fill="#58a6ff">  sending a test alert...</text>
-    <text class="line l11" x="22" y="271" fill="#3fb950">  Sent. A desktop notification should have appeared.</text>
-    <text class="line l12" x="22" y="290" fill="#8b949e">  Telegram: check chat 123456789.</text>
-    <text class="line l13" x="22" y="309"> </text>
-    <text class="line l14" x="22" y="328" fill="#8b949e">the token is a password for the bot - it is never printed back</text>
+    <text class="line l6" x="22" y="176" fill="#c9d1d9">  sending on:  conflict</text>
+    <text class="line l7" x="22" y="195" fill="#c9d1d9">  test it:     syn config test</text>
+    <text class="line l8" x="22" y="214" fill="#c9d1d9">  switch off:  syn config telegram off</text>
+    <text class="line l9" x="22" y="233"> </text>
+    <text class="line l10" x="22" y="252"><tspan fill="#a371f7" font-weight="700">$</tspan><tspan fill="#c9d1d9" dx="8">syn config test</tspan></text>
+    <text class="line l11" x="22" y="271" fill="#c9d1d9"><tspan fill="#8b949e">2026-10-19 07:42:15 [INFO]</tspan><tspan dx="7">sending a test alert...</tspan></text>
+    <text class="line l12" x="22" y="290"> </text>
+    <text class="line l13" x="22" y="309" fill="#c9d1d9">  Sent. A desktop notification should have appeared just now.</text>
+    <text class="line l14" x="22" y="328" fill="#c9d1d9">  Telegram: check chat 123456789.</text>
+    <text class="line l15" x="22" y="347" fill="#c9d1d9">  If nothing arrived, the log says why:  syn log 20</text>
   </g>
 </svg>
