@@ -347,7 +347,7 @@ func requireGit() error {
 	return fmt.Errorf("git is not installed (or not on your PATH)\n"+
 		"        synchronize drives the real git, so it needs git available.\n"+
 		"        %s\n"+
-		"        Then open a NEW terminal and try again.", hint)
+		"        Then open a NEW terminal and try again", hint)
 }
 
 func dispatch(cmd string, rest []string, arg func(int) string, selector string, has func(string) bool, values map[string]string) error {
@@ -382,7 +382,7 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		// my-repo 100.
 		n, repo := 40, ""
 		if v := values["--lines"]; v != "" {
-			fmt.Sscanf(v, "%d", &n)
+			_, _ = fmt.Sscanf(v, "%d", &n)
 		}
 		for _, a := range rest {
 			if strings.HasPrefix(a, "-") {
@@ -839,7 +839,7 @@ func cmdAuth(cfg *syn.Config, creds *syn.Credentials, rest []string, has func(st
 			fmt.Fprintln(os.Stderr, "  2. Run `syn auth setup <client_id>` to enable Device Flow")
 			fmt.Fprint(os.Stderr, "\nToken: ")
 			var token string
-			fmt.Fscan(os.Stdin, &token)
+			_, _ = fmt.Fscan(os.Stdin, &token)
 			token = strings.TrimSpace(token)
 			if token == "" {
 				return fmt.Errorf("no token entered")

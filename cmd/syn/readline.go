@@ -35,7 +35,7 @@ func (e *editor) Read(prompt string, complete func(string) ([]string, string)) (
 		e.raw = false
 		return e.readPlain(prompt)
 	}
-	defer term.Restore(e.fd, state)
+	defer func() { _ = term.Restore(e.fd, state) }()
 
 	var line []rune
 	pos := 0
@@ -181,7 +181,7 @@ func (e *editor) Read(prompt string, complete func(string) ([]string, string)) (
 				}
 				rest := make([]byte, extra)
 				if extra > 0 {
-					os.Stdin.Read(rest)
+					_, _ = os.Stdin.Read(rest)
 				}
 				rs := []rune(string(append([]byte{b}, rest...)))
 				if len(rs) == 0 {
@@ -220,9 +220,7 @@ func lastWord(s string) (string, int) {
 func completeLine(line string, commands, repos []string) ([]string, string) {
 	// Typing the program name is a habit; ignore it here the same way the
 	// shell does when the line is run.
-	if strings.HasPrefix(line, "syn ") {
-		line = line[4:]
-	}
+	line = strings.TrimPrefix(line, "syn ")
 
 	word, _ := lastWord(line)
 	fields := strings.Fields(line)

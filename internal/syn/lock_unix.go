@@ -20,5 +20,5 @@ func tryLock(f *os.File) (bool, error) {
 }
 
 func unlock(f *os.File) {
-	unix.Flock(int(f.Fd()), unix.LOCK_UN)
+	_ = unix.Flock(int(f.Fd()), unix.LOCK_UN)
 }

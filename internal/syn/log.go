@@ -83,7 +83,7 @@ func LiveTailFor(w io.Writer, repo string, stop <-chan struct{}) error {
 	}
 	if f != nil {
 
-		f.Seek(0, io.SeekEnd)
+		_, _ = f.Seek(0, io.SeekEnd)
 	}
 	for {
 		select {
@@ -120,7 +120,7 @@ func TailLines(out chan<- string, stop <-chan struct{}) {
 		<-stop
 		pw.Close()
 	}()
-	go LiveTail(pw, stop)
+	go func() { _ = LiveTail(pw, stop) }()
 
 	buf := make([]byte, 0, 4096)
 	tmp := make([]byte, 1024)

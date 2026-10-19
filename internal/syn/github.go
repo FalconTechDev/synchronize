@@ -178,11 +178,11 @@ func DeviceFlowBegin(clientID string) (*DeviceFlowStart, error) {
 	}
 	interval := 5
 	if v := vals.Get("interval"); v != "" {
-		fmt.Sscanf(v, "%d", &interval)
+		_, _ = fmt.Sscanf(v, "%d", &interval)
 	}
 	expires := 900
 	if v := vals.Get("expires_in"); v != "" {
-		fmt.Sscanf(v, "%d", &expires)
+		_, _ = fmt.Sscanf(v, "%d", &expires)
 	}
 	return &DeviceFlowStart{
 		DeviceCode:      vals.Get("device_code"),

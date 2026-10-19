@@ -98,5 +98,5 @@ func openPath(path string) {
 	default:
 		cmd = exec.Command("xdg-open", path)
 	}
-	cmd.Start()
+	_ = cmd.Start()
 }

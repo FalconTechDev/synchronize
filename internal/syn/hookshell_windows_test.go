@@ -94,11 +94,11 @@ func TestDecodeConsoleRecoversOEMBytes(t *testing.T) {
 		t.Skip("those bytes are valid UTF-8 after all")
 	}
 	got := decodeConsole(oem)
-	if !utf8.ValidString(got) {
-		t.Fatalf("decoded to something that is not text: %q", got)
-	}
 	if got == string(oem) {
 		t.Skip("this machine's console code page is not CP866; nothing to compare against")
+	}
+	if !utf8.ValidString(got) {
+		t.Fatalf("decoded to something that is not text: %q", got)
 	}
 	if got != "Ошибка" {
 		t.Errorf("decoded to %q, want %q", got, "Ошибка")

@@ -10,6 +10,7 @@ import (
 
 var (
 	procGetConsoleOutputCP  = kernel32.NewProc("GetConsoleOutputCP")
+	procGetOEMCP            = kernel32.NewProc("GetOEMCP")
 	procMultiByteToWideChar = kernel32.NewProc("MultiByteToWideChar")
 )
 
@@ -32,6 +33,11 @@ func decodeConsole(b []byte) string {
 		return string(b)
 	}
 	cp, _, _ := procGetConsoleOutputCP.Call()
+	if cp == 0 {
+		// No console is attached (a hidden autostart, a service, CI): the child still
+		// writes in the system OEM code page, so use that rather than giving up.
+		cp, _, _ = procGetOEMCP.Call()
+	}
 	if cp == 0 {
 		return string(b)
 	}

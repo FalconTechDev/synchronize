@@ -63,14 +63,14 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 		"SYN_TOAST_APPID="+ensureToastAppID(),
 	)
 	hideConsole(cmd)
-	cmd.Start()
+	_ = cmd.Start()
 }
 
 func toastDarwin(title, body string) {
 	safe := strings.ReplaceAll(body, `"`, `\"`)
 	safeTitle := strings.ReplaceAll(title, `"`, `\"`)
 	script := fmt.Sprintf(`display notification "%s" with title "%s"`, safe, safeTitle)
-	exec.Command("osascript", "-e", script).Start()
+	_ = exec.Command("osascript", "-e", script).Start()
 }
 
 func toastLinux(title, body string) {
@@ -79,5 +79,5 @@ func toastLinux(title, body string) {
 	if _, err := os.Stat(logoPath); err == nil {
 		args = append([]string{"--icon=" + logoPath}, args...)
 	}
-	exec.Command("notify-send", args...).Start()
+	_ = exec.Command("notify-send", args...).Start()
 }

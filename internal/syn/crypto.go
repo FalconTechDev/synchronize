@@ -149,7 +149,7 @@ func SetupEncryption(repoPath, repoName string) error {
 		if err != nil {
 			return err
 		}
-		git(repoPath, "add", ".gitattributes")
+		_, _ = git(repoPath, "add", ".gitattributes")
 	}
 	return nil
 }

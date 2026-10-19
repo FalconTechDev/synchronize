@@ -220,14 +220,14 @@ func AheadBehind(dir, branch, remote string) (ahead, behind int, err error) {
 		if cerr != nil {
 			return 0, 0, cerr
 		}
-		fmt.Sscanf(n, "%d", &ahead)
+		_, _ = fmt.Sscanf(n, "%d", &ahead)
 		return ahead, 0, nil
 	}
 	out, err := git(dir, "rev-list", "--left-right", "--count", "HEAD..."+ref)
 	if err != nil {
 		return 0, 0, err
 	}
-	fmt.Sscanf(out, "%d\t%d", &ahead, &behind)
+	_, _ = fmt.Sscanf(out, "%d\t%d", &ahead, &behind)
 	return ahead, behind, nil
 }
 

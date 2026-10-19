@@ -56,11 +56,11 @@ func (e *Engine) Serve(cfg *Config, addr string) error {
 				Err:      errStr,
 			})
 		}
-		json.NewEncoder(w).Encode(rows)
+		_ = json.NewEncoder(w).Encode(rows)
 	})
 	mux.HandleFunc("/api/pull", sameOriginOnly(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "POST only", 405)
+			http.Error(w, "POST only", http.StatusMethodNotAllowed)
 			return
 		}
 		name := r.URL.Query().Get("repo")
@@ -74,7 +74,7 @@ func (e *Engine) Serve(cfg *Config, addr string) error {
 	}))
 	mux.HandleFunc("/api/push", sameOriginOnly(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "POST only", 405)
+			http.Error(w, "POST only", http.StatusMethodNotAllowed)
 			return
 		}
 		name := r.URL.Query().Get("repo")
@@ -102,7 +102,7 @@ func (e *Engine) Serve(cfg *Config, addr string) error {
 			fmt.Fprintf(w, "data: %s\n\n", strings.ReplaceAll(line, "\n", " "))
 			flusher.Flush()
 		})
-		go LiveTail(pw, stop)
+		go func() { _ = LiveTail(pw, stop) }()
 		<-r.Context().Done()
 		pr.Close()
 	})
@@ -132,7 +132,7 @@ func writeResult(w http.ResponseWriter, res Result) {
 	if res.Err != nil {
 		o.Error = res.Err.Error()
 	}
-	json.NewEncoder(w).Encode(o)
+	_ = json.NewEncoder(w).Encode(o)
 }
 
 type lineWriter struct {

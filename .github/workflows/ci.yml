@@ -21,6 +21,10 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
+      # The tests compare file contents byte for byte; keep Windows from turning LF into CRLF.
+      - name: Keep line endings as they are
+        run: git config --global core.autocrlf false
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
