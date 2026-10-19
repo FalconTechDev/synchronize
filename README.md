@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/logo.png" alt="" width="104" height="104">
+
 # synchronize
 
 **Keep every git repository in step across every machine you work on.**
@@ -25,6 +27,10 @@ syn sync my-repo         # do it now, by hand
 ```
 
 Repositories stay **ordinary git repositories**. Any git client, GitHub, VS Code — the commits look like commits. `syn` adds no format of its own.
+
+<div align="center">
+<img src="docs/demo.svg" alt="Switching syn on, asking what it is doing, and watching it pick up a push and restart the bot" width="760">
+</div>
 
 ---
 
