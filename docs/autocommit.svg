@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 250" width="760" height="250" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="With autocommit on the history fills with automatic commits; with it off only your own commits are published">
+  <title>autocommit on · autocommit off</title>
+
+  <style>
+    .card  { fill: #0d1117 }
+    .edge  { fill: none; stroke: #30363d; stroke-width: 1 }
+    .pane  { fill: #161b22; stroke: #30363d; stroke-width: 1 }
+    .h     { font-size: 14px; fill: #c9d1d9; font-weight: 600 }
+    .sub   { font-size: 11px; fill: #8b949e }
+    .tiny  { font-size: 10px; fill: #8b949e }
+    .mono  { font-family: ui-monospace, Consolas, monospace; font-size: 11px; fill: #8b949e }
+    .rail  { stroke: #30363d; stroke-width: 2 }
+
+    /* Left: every ten minutes another automatic commit lands between the
+       ones that mean something. Right: the same work, only the deliberate
+       commits travel. The point is the clutter, so the clutter accumulates
+       in front of you. */
+    .auto { opacity: 0 }
+    .a1 { animation: pop 7s ease-in-out infinite; animation-delay: .4s }
+    .a2 { animation: pop 7s ease-in-out infinite; animation-delay: 1.1s }
+    .a3 { animation: pop 7s ease-in-out infinite; animation-delay: 1.8s }
+    .a4 { animation: pop 7s ease-in-out infinite; animation-delay: 2.5s }
+    .a5 { animation: pop 7s ease-in-out infinite; animation-delay: 3.2s }
+    @keyframes pop { 0%{opacity:0} 6%,92%{opacity:1} 100%{opacity:0} }
+
+    @media (prefers-reduced-motion: reduce) { .auto { animation: none; opacity: 1 } }
+  </style>
+
+  <rect class="card" width="760" height="250" rx="10"/>
+  <rect class="edge" x="0.5" y="0.5" width="759" height="249" rx="10"/>
+
+  <text class="sub" x="380" y="32" text-anchor="middle">for a repository you develop in rather than one you just keep in step</text>
+
+  <!-- on -->
+  <rect class="pane" x="30" y="56" width="334" height="140" rx="8"/>
+  <text class="h"   x="54" y="84">autocommit on</text>
+  <text class="sub" x="54" y="102">the default — good for notes and configuration</text>
+
+  <line class="rail" x1="54" y1="138" x2="340" y2="138"/>
+  <circle cx="68"  cy="138" r="6" fill="#c9d1d9"/>
+  <circle class="auto a1" cx="112" cy="138" r="4.5" fill="#6e7681"/>
+  <circle class="auto a2" cx="152" cy="138" r="4.5" fill="#6e7681"/>
+  <circle cx="196" cy="138" r="6" fill="#c9d1d9"/>
+  <circle class="auto a3" cx="240" cy="138" r="4.5" fill="#6e7681"/>
+  <circle class="auto a4" cx="280" cy="138" r="4.5" fill="#6e7681"/>
+  <circle class="auto a5" cx="320" cy="138" r="4.5" fill="#6e7681"/>
+  <text class="tiny" x="54" y="170">● yours   ● sync: auto-commit, every ten minutes</text>
+  <text class="tiny" x="54" y="186">work in progress travels half-finished</text>
+
+  <!-- off -->
+  <rect class="pane" x="396" y="56" width="334" height="140" rx="8"/>
+  <text class="h"   x="420" y="84">autocommit off</text>
+  <text class="sub" x="420" y="102">still pulls, still publishes what you committed</text>
+
+  <line class="rail" x1="420" y1="138" x2="706" y2="138"/>
+  <circle cx="434" cy="138" r="6" fill="#c9d1d9"/>
+  <circle cx="562" cy="138" r="6" fill="#c9d1d9"/>
+  <circle cx="690" cy="138" r="6" fill="#c9d1d9"/>
+  <text class="tiny" x="420" y="170">only the commits you made yourself</text>
+  <text class="tiny" x="420" y="186">the rest stays in your working tree, untouched</text>
+
+  <text x="380" y="224" text-anchor="middle" class="mono" fill="#3fb950">syn set my-repo autocommit off</text>
+</svg>

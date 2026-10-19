@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 230" width="760" height="230" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="A day on the timeline: syncs at login, every ten minutes, and once more before shutdown">
+  <title>Three switches, one day</title>
+
+  <style>
+    .card  { fill: #0d1117 }
+    .edge  { fill: none; stroke: #30363d; stroke-width: 1 }
+    .rail  { stroke: #30363d; stroke-width: 2 }
+    .label { font-size: 13px; fill: #c9d1d9 }
+    .sub   { font-size: 11px; fill: #8b949e }
+    .cmd   { font-size: 12px; fill: #8b949e; font-family: ui-monospace, Consolas, monospace }
+
+    /* The day runs left to right. Each mark lights as the playhead reaches
+       it, so which switch does what, and when, is read rather than looked up. */
+    .head { animation: sweep 9s linear infinite }
+    @keyframes sweep { from { transform: translateX(0) } to { transform: translateX(600px) } }
+
+    .m1 { animation: lit1 9s linear infinite }
+    .m2 { animation: lit2 9s linear infinite }
+    .m3 { animation: lit3 9s linear infinite }
+    .m4 { animation: lit4 9s linear infinite }
+    .m5 { animation: lit5 9s linear infinite }
+    @keyframes lit1 { 0%,1%{r:6;opacity:.35} 3%{r:11;opacity:1} 10%,100%{r:6;opacity:.35} }
+    @keyframes lit2 { 0%,26%{r:5;opacity:.35} 29%{r:10;opacity:1} 36%,100%{r:5;opacity:.35} }
+    @keyframes lit3 { 0%,46%{r:5;opacity:.35} 49%{r:10;opacity:1} 56%,100%{r:5;opacity:.35} }
+    @keyframes lit4 { 0%,66%{r:5;opacity:.35} 69%{r:10;opacity:1} 76%,100%{r:5;opacity:.35} }
+    @keyframes lit5 { 0%,90%{r:6;opacity:.35} 94%{r:11;opacity:1} 99%,100%{r:6;opacity:.35} }
+
+    @media (prefers-reduced-motion: reduce) {
+      .head { animation: none; opacity: 0 }
+      .m1,.m2,.m3,.m4,.m5 { animation: none; opacity: 1 }
+    }
+  </style>
+
+  <rect class="card" width="760" height="230" rx="10"/>
+  <rect class="edge" x="0.5" y="0.5" width="759" height="229" rx="10"/>
+
+  <text class="sub" x="380" y="34" text-anchor="middle">one day, three switches — each one on its own</text>
+
+  <!-- the day -->
+  <line class="rail" x1="80" y1="108" x2="680" y2="108"/>
+  <rect class="head" x="79" y="92" width="2" height="32" fill="#58a6ff" opacity="0.8"/>
+
+  <!-- login -->
+  <circle class="m1" cx="80" cy="108" r="6" fill="#a371f7"/>
+  <text class="label" x="80" y="146" text-anchor="middle">you log in</text>
+  <text class="sub"   x="80" y="163" text-anchor="middle">brings it all down</text>
+  <text class="cmd"   x="80" y="186" text-anchor="middle">auto login on</text>
+
+  <!-- the timer -->
+  <circle class="m2" cx="230" cy="108" r="5" fill="#58a6ff"/>
+  <circle class="m3" cx="380" cy="108" r="5" fill="#58a6ff"/>
+  <circle class="m4" cx="530" cy="108" r="5" fill="#58a6ff"/>
+  <text class="label" x="380" y="80" text-anchor="middle">every 10 minutes while you work</text>
+  <text class="cmd"   x="380" y="186" text-anchor="middle">auto watch on</text>
+
+  <!-- shutdown -->
+  <circle class="m5" cx="680" cy="108" r="6" fill="#3fb950"/>
+  <text class="label" x="680" y="146" text-anchor="middle">you shut down</text>
+  <text class="sub"   x="680" y="163" text-anchor="middle">publishes, and waits</text>
+  <text class="cmd"   x="680" y="186" text-anchor="middle">auto shutdown on</text>
+
+  <text class="sub" x="380" y="212" text-anchor="middle">syn auto on turns on all three · syn auto &lt;repo&gt; off leaves one out</text>
+</svg>

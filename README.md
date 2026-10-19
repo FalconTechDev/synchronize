@@ -42,6 +42,11 @@ Repositories stay **ordinary git repositories**. Any git client, GitHub, VS Code
 - **It commits on your behalf**, so it is careful to say what went into each commit, and takes a backup branch before rewriting anything.
 - **It stops rather than guesses.** A conflict halts that repository until you decide — it never merges something half-understood.
 
+
+<div align="center">
+<img src="docs/sync-flow.svg" alt="A commit made on the laptop travels through the remote to the desktop, and back again" width="760">
+</div>
+
 ### Three independent switches
 
 | | What it does | Switch |
@@ -51,6 +56,11 @@ Repositories stay **ordinary git repositories**. Any git client, GitHub, VS Code
 | **At shutdown** | Commits, publishes, and **holds the shutdown** until done | `syn auto shutdown on` |
 
 `syn auto on` turns on all three. None is forced on you.
+
+
+<div align="center">
+<img src="docs/switches.svg" alt="A day on a timeline: a sync at login, every ten minutes, and once more before shutdown" width="760">
+</div>
 
 ### What a sync actually does
 
@@ -75,6 +85,10 @@ $ syn status all
 ```
 
 ### When a conflict happens
+
+<div align="center">
+<img src="docs/conflict.svg" alt="On a conflict: the merge is aborted, a backup branch is taken, you are told, and syncing stops" width="760">
+</div>
 
 1. The merge or rebase is **aborted** the moment it goes wrong
 2. A **backup branch** `syn/backup/<host>/<branch>/<timestamp>` is taken
@@ -337,6 +351,10 @@ it stops committing your work in progress every ten minutes — which otherwise
 fills the history with `sync: auto-commit` between the commits that mean
 something, and sends half-finished work to your other machine.
 
+<div align="center">
+<img src="docs/autocommit.svg" alt="With autocommit on the history fills with automatic commits; with it off only your own commits are published" width="760">
+</div>
+
 ### Alerts
 
 ```bash
@@ -368,6 +386,10 @@ because the dashboard can push.
 
 ## On a server
 
+<div align="center">
+<img src="docs/deploy.svg" alt="Push from the laptop, CI goes green, the server pulls within the minute and restarts the bot" width="760">
+</div>
+
 A server is not a machine you work on. Say so, or syncing commits the logs and
 caches the running service writes and pushes them to the machines you do work
 on.
@@ -389,6 +411,10 @@ failure outranks something still running, and if GitHub cannot be reached the
 pull stops rather than assume the best.
 
 ### Running your program
+
+<div align="center">
+<img src="docs/app-vs-restart.svg" alt="restart runs a command and waits for it; app supervises a program that never returns" width="760">
+</div>
 
 Two commands, and picking the wrong one is the most common mistake.
 

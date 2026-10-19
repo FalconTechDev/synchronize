@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 260" width="760" height="260" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="A commit made on the laptop travels through the remote to the desktop, and back again">
+  <title>Two machines, one history</title>
+
+  <style>
+    .card  { fill: #0d1117 }
+    .edge  { fill: none; stroke: #30363d; stroke-width: 1 }
+    .box   { fill: #161b22; stroke: #30363d; stroke-width: 1 }
+    .label { font-size: 14px; fill: #c9d1d9 }
+    .sub   { font-size: 12px; fill: #8b949e }
+    .wire  { fill: none; stroke: #30363d; stroke-width: 2; stroke-dasharray: 4 4 }
+
+    /* A commit leaves the laptop, reaches the remote, and arrives on the
+       desktop; then one goes the other way. Nothing here is decoration -
+       the direction is the thing being explained. */
+    .dotA { fill: #58a6ff; animation: toRemote 7s ease-in-out infinite }
+    .dotB { fill: #3fb950; animation: toDesktop 7s ease-in-out infinite }
+    .dotC { fill: #d29922; animation: backHome 7s ease-in-out infinite }
+
+    @keyframes toRemote {
+      0%, 4%   { transform: translateX(0);    opacity: 0 }
+      6%       { opacity: 1 }
+      26%      { transform: translateX(242px); opacity: 1 }
+      30%,100% { transform: translateX(242px); opacity: 0 }
+    }
+    @keyframes toDesktop {
+      0%, 30%  { transform: translateX(242px); opacity: 0 }
+      33%      { opacity: 1 }
+      53%      { transform: translateX(484px); opacity: 1 }
+      57%,100% { transform: translateX(484px); opacity: 0 }
+    }
+    @keyframes backHome {
+      0%, 62%  { transform: translateX(484px); opacity: 0 }
+      65%      { opacity: 1 }
+      92%      { transform: translateX(0);      opacity: 1 }
+      96%,100% { transform: translateX(0);      opacity: 0 }
+    }
+
+    .pulseL { animation: lit 7s ease-in-out infinite }
+    .pulseR { animation: litR 7s ease-in-out infinite }
+    @keyframes lit  { 0%,3%,100% { stroke: #30363d } 6%,26% { stroke: #58a6ff } }
+    @keyframes litR { 0%,50%,100% { stroke: #30363d } 55%,75% { stroke: #3fb950 } }
+
+    @media (prefers-reduced-motion: reduce) {
+      .dotA, .dotB, .dotC { animation: none; opacity: 1 }
+      .pulseL, .pulseR { animation: none }
+    }
+  </style>
+
+  <rect class="card" width="760" height="260" rx="10"/>
+  <rect class="edge" x="0.5" y="0.5" width="759" height="259" rx="10"/>
+
+  <!-- the wire everything travels along -->
+  <line class="wire" x1="150" y1="120" x2="610" y2="120"/>
+
+  <!-- laptop -->
+  <g>
+    <rect class="box pulseL" x="40" y="80" width="112" height="80" rx="8"/>
+    <rect x="58" y="98" width="76" height="40" rx="3" fill="#0d1117" stroke="#30363d"/>
+    <rect x="50" y="144" width="92" height="5" rx="2.5" fill="#30363d"/>
+    <text class="label" x="96" y="186" text-anchor="middle">laptop</text>
+    <text class="sub"   x="96" y="204" text-anchor="middle">you commit here</text>
+  </g>
+
+  <!-- the remote -->
+  <g>
+    <rect class="box" x="324" y="84" width="112" height="72" rx="8"/>
+    <circle cx="380" cy="108" r="8" fill="none" stroke="#8b949e" stroke-width="2"/>
+    <circle cx="380" cy="136" r="5" fill="#8b949e"/>
+    <line x1="380" y1="116" x2="380" y2="131" stroke="#8b949e" stroke-width="2"/>
+    <text class="label" x="380" y="182" text-anchor="middle">the remote</text>
+    <text class="sub"   x="380" y="200" text-anchor="middle">ordinary git</text>
+  </g>
+
+  <!-- desktop -->
+  <g>
+    <rect class="box pulseR" x="608" y="80" width="112" height="80" rx="8"/>
+    <rect x="626" y="96" width="76" height="46" rx="3" fill="#0d1117" stroke="#30363d"/>
+    <rect x="652" y="146" width="24" height="6" fill="#30363d"/>
+    <text class="label" x="664" y="186" text-anchor="middle">desktop</text>
+    <text class="sub"   x="664" y="204" text-anchor="middle">it is already there</text>
+  </g>
+
+  <!-- the commits in flight -->
+  <circle class="dotA" cx="168" cy="120" r="7"/>
+  <circle class="dotB" cx="168" cy="120" r="7"/>
+  <circle class="dotC" cx="168" cy="120" r="7"/>
+
+  <text class="sub" x="380" y="40" text-anchor="middle">syn pushes what you did, and pulls what the other machine did — on a timer, by itself</text>
+</svg>
