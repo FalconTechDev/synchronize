@@ -163,6 +163,10 @@ autostart falls back to `syn.exe` and you get a black window at every login.
 
 ## Quick start
 
+<div align="center">
+<img src="docs/t-quickstart.svg" alt="Signing in, adding a repository and switching automatic syncing on" width="760">
+</div>
+
 ```bash
 syn auth login              # 1. connect your GitHub account
 syn repo add owner/name     # 2. clone a repository and track it
@@ -200,6 +204,10 @@ Or pass it directly: `syn auth login --pat ghp_...`
 
 ### Tracking repositories
 
+<div align="center">
+<img src="docs/t-repos.svg" alt="Registering a clone you have, cloning a new one, listing and removing" width="760">
+</div>
+
 | Command | |
 |---|---|
 | `syn init [path]` | register a clone you already have |
@@ -214,6 +222,10 @@ Or pass it directly: `syn auth login --pat ghp_...`
 | `syn remove <repo>` | stop tracking; the files stay |
 
 ### Syncing by hand
+
+<div align="center">
+<img src="docs/t-sync.svg" alt="A dry run, then a real sync showing what came down and what went up" width="760">
+</div>
 
 | Command | |
 |---|---|
@@ -233,6 +245,10 @@ nothing. Worth having for a command that commits on your behalf.
 
 ### Automatic syncing
 
+<div align="center">
+<img src="docs/t-auto.svg" alt="The three switches, a per-repository exception, and a pause" width="760">
+</div>
+
 | Command | |
 |---|---|
 | `syn auto` | which of the three switches are on |
@@ -249,6 +265,10 @@ repository. The watcher notices a pause set while it is running, so you do not
 have to restart it.
 
 ### Part of a repository
+
+<div align="center">
+<img src="docs/t-files.svg" alt="Syncing only one folder, and keeping a local file out of automatic commits" width="760">
+</div>
 
 By default the whole repository is synced.
 
@@ -273,6 +293,10 @@ syn ignore my-repo clear
 
 ### Conflicts
 
+<div align="center">
+<img src="docs/t-conflict.svg" alt="A sync stops on a conflict, refuses to carry on, and finishes once you have edited the files" width="760">
+</div>
+
 | Command | |
 |---|---|
 | `syn status <repo>` | which files, and where the backup went |
@@ -294,6 +318,10 @@ Running `resolve` early is safe: if the markers are still there it says so and
 changes nothing.
 
 ### Hooks
+
+<div align="center">
+<img src="docs/t-hooks.svg" alt="A hook that only fires for the files it cares about, and what it is told" width="760">
+</div>
 
 Run a command **on this machine** once a sync has actually changed something.
 
@@ -356,6 +384,10 @@ something, and sends half-finished work to your other machine.
 </div>
 
 ### Alerts
+
+<div align="center">
+<img src="docs/t-alerts.svg" alt="Setting up Telegram alerts and checking that one arrives" width="760">
+</div>
 
 ```bash
 syn config telegram <bot-token> <chat-id>   # conflict alerts to Telegram
@@ -489,9 +521,17 @@ sudo syn service install --as deploy
 Push to `main` from your laptop. When CI goes green the server takes it within
 the minute and restarts the bot on the new code.
 
+<div align="center">
+<img src="docs/t-server.svg" alt="Setting a server up: deploy target, CI gate, the program syn keeps running, and the boot service" width="760">
+</div>
+
 ---
 
 ## Scripting
+
+<div align="center">
+<img src="docs/t-scripting.svg" alt="JSON output, the porcelain form, and exit codes a script can act on" width="760">
+</div>
 
 ```bash
 syn status all --json        # one object per repository
@@ -552,6 +592,10 @@ including the one way you can still defeat it yourself.
 ---
 
 ## Troubleshooting
+
+<div align="center">
+<img src="docs/t-doctor.svg" alt="doctor finding a repository in trouble, and the log narrowed to one repository" width="760">
+</div>
 
 Run **`syn doctor`** first.
 

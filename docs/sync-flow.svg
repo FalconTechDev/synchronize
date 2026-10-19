@@ -63,10 +63,10 @@
 
   <!-- the remote -->
   <g>
-    <rect class="box" x="324" y="84" width="112" height="72" rx="8"/>
-    <circle cx="380" cy="108" r="8" fill="none" stroke="#8b949e" stroke-width="2"/>
+    <rect class="box" x="324" y="80" width="112" height="80" rx="8"/>
+    <circle cx="380" cy="106" r="8" fill="none" stroke="#8b949e" stroke-width="2"/>
     <circle cx="380" cy="136" r="5" fill="#8b949e"/>
-    <line x1="380" y1="116" x2="380" y2="131" stroke="#8b949e" stroke-width="2"/>
+    <line x1="380" y1="114" x2="380" y2="131" stroke="#8b949e" stroke-width="2"/>
     <text class="label" x="380" y="182" text-anchor="middle">the remote</text>
     <text class="sub"   x="380" y="200" text-anchor="middle">ordinary git</text>
   </g>

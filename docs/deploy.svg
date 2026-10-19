@@ -1,30 +1,32 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 280" width="760" height="280" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="Push from the laptop, CI goes green, the server pulls within the minute and restarts the bot">
   <title>A deployment, end to end</title>
 
+  <!-- Grid: margin 48 either side, three equal cards of 160 with 92 between.
+       48 + 3*160 + 2*92 = 712 = 760 - 48. Same y, same height, so the row
+       reads as a row. -->
   <style>
     .card  { fill: #0d1117 }
     .edge  { fill: none; stroke: #30363d; stroke-width: 1 }
     .box   { fill: #161b22; stroke: #30363d; stroke-width: 1 }
     .label { font-size: 13px; fill: #c9d1d9 }
     .sub   { font-size: 11px; fill: #8b949e }
-    .mono  { font-family: ui-monospace, Consolas, monospace; font-size: 12px }
+    .mono  { font-family: ui-monospace, Consolas, monospace; font-size: 12px; fill: #8b949e }
     .wire  { fill: none; stroke: #30363d; stroke-width: 2; stroke-dasharray: 4 4 }
 
-    /* The whole promise of the deploy story in one loop: you push, CI
-       decides, and only then does the server move. The gate is the point -
-       nothing reaches the server until the tick turns green. */
+    /* The gate is the point: nothing reaches the server until the tick
+       turns green. So the dot waits, the ring spins, and only then moves. */
     .push  { animation: p1 10s ease-in-out infinite }
-    .spin  { animation: sp 10s linear infinite; transform-origin: 380px 112px }
+    .spin  { animation: sp 10s linear infinite; transform-origin: 380px 110px }
     .amber { animation: am 10s ease-in-out infinite }
     .green { animation: gr 10s ease-in-out infinite }
     .pull  { animation: p2 10s ease-in-out infinite }
     .boot  { animation: bo 10s ease-in-out infinite }
 
-    @keyframes p1 { 0%,3%{transform:translateX(0);opacity:0} 5%{opacity:1} 20%{transform:translateX(212px);opacity:1} 24%,100%{transform:translateX(212px);opacity:0} }
+    @keyframes p1 { 0%,3%{transform:translateX(0);opacity:0} 5%{opacity:1} 20%{transform:translateX(84px);opacity:1} 24%,100%{transform:translateX(84px);opacity:0} }
     @keyframes sp { 0%,22%{transform:rotate(0);opacity:0} 24%{opacity:1} 44%{transform:rotate(540deg);opacity:1} 46%,100%{opacity:0} }
     @keyframes am { 0%,22%{opacity:0} 26%,44%{opacity:1} 46%,100%{opacity:0} }
     @keyframes gr { 0%,45%{opacity:0} 48%,100%{opacity:1} }
-    @keyframes p2 { 0%,50%{transform:translateX(0);opacity:0} 53%{opacity:1} 70%{transform:translateX(212px);opacity:1} 74%,100%{transform:translateX(212px);opacity:0} }
+    @keyframes p2 { 0%,50%{transform:translateX(0);opacity:0} 53%{opacity:1} 70%{transform:translateX(84px);opacity:1} 74%,100%{transform:translateX(84px);opacity:0} }
     @keyframes bo { 0%,74%{opacity:.25} 80%{opacity:1} 88%{opacity:.5} 94%,100%{opacity:1} }
 
     @media (prefers-reduced-motion: reduce) {
@@ -38,41 +40,42 @@
 
   <text class="sub" x="380" y="32" text-anchor="middle">push from the laptop — the server takes it by itself, but only if CI agreed</text>
 
-  <line class="wire" x1="166" y1="112" x2="332" y2="112"/>
-  <line class="wire" x1="428" y1="112" x2="594" y2="112"/>
+  <line class="wire" x1="208" y1="110" x2="300" y2="110"/>
+  <line class="wire" x1="460" y1="110" x2="552" y2="110"/>
 
   <!-- laptop -->
-  <rect class="box" x="48" y="76" width="118" height="72" rx="8"/>
-  <rect x="68" y="92" width="78" height="38" rx="3" fill="#0d1117" stroke="#30363d"/>
-  <text class="label" x="107" y="172" text-anchor="middle">your laptop</text>
-  <text class="mono sub" x="107" y="190" text-anchor="middle">git push</text>
+  <rect class="box" x="48" y="68" width="160" height="84" rx="8"/>
+  <rect x="92" y="88" width="72" height="38" rx="3" fill="#0d1117" stroke="#30363d"/>
+  <rect x="84" y="132" width="88" height="5" rx="2.5" fill="#30363d"/>
+  <text class="label" x="128" y="176" text-anchor="middle">your laptop</text>
+  <text class="mono"  x="128" y="196" text-anchor="middle">git push</text>
 
   <!-- CI -->
-  <rect class="box" x="324" y="72" width="112" height="80" rx="8"/>
+  <rect class="box" x="300" y="68" width="160" height="84" rx="8"/>
   <g class="spin">
-    <circle cx="380" cy="112" r="15" fill="none" stroke="#d29922" stroke-width="3" stroke-dasharray="52 24"/>
+    <circle cx="380" cy="110" r="16" fill="none" stroke="#d29922" stroke-width="3" stroke-dasharray="56 26"/>
   </g>
-  <circle class="amber" cx="380" cy="112" r="4" fill="#d29922"/>
+  <circle class="amber" cx="380" cy="110" r="4" fill="#d29922"/>
   <g class="green">
-    <circle cx="380" cy="112" r="16" fill="none" stroke="#3fb950" stroke-width="3"/>
-    <path d="M 372 112 l 6 7 l 12 -15" fill="none" stroke="#3fb950" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="380" cy="110" r="17" fill="none" stroke="#3fb950" stroke-width="3"/>
+    <path d="M 371 110 l 6 7 l 13 -15" fill="none" stroke="#3fb950" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
-  <text class="label" x="380" y="172" text-anchor="middle">CI</text>
-  <text class="mono sub" x="380" y="190" text-anchor="middle">require_checks on</text>
+  <text class="label" x="380" y="176" text-anchor="middle">CI</text>
+  <text class="mono"  x="380" y="196" text-anchor="middle">require_checks on</text>
 
   <!-- server -->
-  <rect class="box" x="594" y="72" width="118" height="80" rx="8"/>
-  <rect x="612" y="86" width="82" height="16" rx="3" fill="#0d1117" stroke="#30363d"/>
-  <rect x="612" y="106" width="82" height="16" rx="3" fill="#0d1117" stroke="#30363d"/>
-  <circle class="boot" cx="684" cy="94" r="3.5" fill="#3fb950"/>
-  <circle class="boot" cx="684" cy="114" r="3.5" fill="#3fb950"/>
-  <text class="label" x="653" y="172" text-anchor="middle">your server</text>
-  <text class="mono sub" x="653" y="190" text-anchor="middle">deploy on · app on</text>
+  <rect class="box" x="552" y="68" width="160" height="84" rx="8"/>
+  <rect x="592" y="86" width="80" height="18" rx="3" fill="#0d1117" stroke="#30363d"/>
+  <rect x="592" y="110" width="80" height="18" rx="3" fill="#0d1117" stroke="#30363d"/>
+  <circle class="boot" cx="662" cy="95"  r="3.5" fill="#3fb950"/>
+  <circle class="boot" cx="662" cy="119" r="3.5" fill="#3fb950"/>
+  <text class="label" x="632" y="176" text-anchor="middle">your server</text>
+  <text class="mono"  x="632" y="196" text-anchor="middle">deploy on · app on</text>
 
   <!-- what travels -->
-  <circle class="push" cx="184" cy="112" r="6" fill="#58a6ff"/>
-  <circle class="pull" cx="446" cy="112" r="6" fill="#3fb950"/>
+  <circle class="push" cx="224" cy="110" r="6" fill="#58a6ff"/>
+  <circle class="pull" cx="476" cy="110" r="6" fill="#3fb950"/>
 
-  <text class="sub" x="380" y="226" text-anchor="middle">red or still running → nothing is pulled · the restart fails → the pull is put back</text>
-  <text x="380" y="252" text-anchor="middle" class="mono" fill="#8b949e">syn deploy my-bot on · syn set my-bot require_checks on · syn app my-bot -- python bot.py</text>
+  <text class="sub" x="380" y="232" text-anchor="middle">red or still running → nothing is pulled · the restart fails → the pull is put back</text>
+  <text class="mono" x="380" y="256" text-anchor="middle">syn deploy my-bot on · syn set my-bot require_checks on · syn app my-bot -- python bot.py</text>
 </svg>
