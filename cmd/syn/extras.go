@@ -95,7 +95,11 @@ func cmdPause(cfg *syn.Config, rest []string) error {
 		return nil
 	}
 
-	d, err := time.ParseDuration(strings.ToLower(rest[1]))
+	// The same reading as an interval, so "1d" - which the message below
+	// offers as an example - is accepted. time.ParseDuration has no day, and
+	// the error used to name a format the parser then rejected.
+	mins, err := parseMinutes(rest[1])
+	d := time.Duration(mins) * time.Minute
 	if err != nil || d <= 0 {
 		return fmt.Errorf("say how long, like 30m, 2h or 1d - not %q", rest[1])
 	}
