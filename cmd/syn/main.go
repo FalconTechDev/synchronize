@@ -164,6 +164,8 @@ OTHER
   log [repo] --live      stream the log in real time
   diff <repo|all>        what is not committed yet, untracked files included
   diff <repo> --pushed   what this branch has that the remote does not
+  completion <shell>     tab completion for bash, zsh, fish or powershell:
+                         source <(syn completion bash)
   doctor                 check that everything is wired up
   version                print the version
 
@@ -278,6 +280,23 @@ func run(args []string) error {
 			return nil
 		}
 	}
+	// Completion scripts need neither git nor a config, and are read by a
+	// shell rather than a person, so they are handled before either is asked for.
+	if cmd == "completion" {
+		if len(rest) == 0 {
+			return fmt.Errorf("usage: syn completion <bash|zsh|fish|powershell>\n" +
+				"        bash:        source <(syn completion bash)\n" +
+				"        zsh:         source <(syn completion zsh)\n" +
+				"        fish:        syn completion fish | source\n" +
+				"        powershell:  syn completion powershell | Out-String | Invoke-Expression")
+		}
+		script, err := completionScript(rest[0])
+		if err != nil {
+			return err
+		}
+		fmt.Print(script)
+		return nil
+	}
 	if cmd == "help" && len(rest) > 0 {
 		text, ok := commandHelp(rest[0])
 		if !ok {
@@ -362,7 +381,7 @@ func uniqueName(cfg *syn.Config, base string) string {
 
 func needsGit(cmd string) bool {
 	switch cmd {
-	case "help", "--help", "-h", "version", "--version", "config", "log", "auth":
+	case "help", "--help", "-h", "version", "--version", "config", "log", "auth", "completion":
 		return false
 	}
 	return true
@@ -482,10 +501,6 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		syn.RunTray(cfg, engine)
 		return nil
 
-	case "send", "receive", "encrypt", "tmp":
-		// A script has to be able to tell this from success.
-		return fmt.Errorf("%s is not finished yet - see the readme for what works today", cmd)
-
 	case "shell", "sh", "i":
 		return cmdShell()
 
@@ -496,6 +511,15 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 		addr := values["--addr"]
 		return engine.Serve(cfg, addr)
 	case "list", "ls":
+		if has("--names") {
+			// One name per line, for scripts and for completion: nothing
+			// else printed, and no git touched, so it is fast enough to run
+			// on every Tab.
+			for _, r := range cfg.Repos {
+				fmt.Println(r.Name)
+			}
+			return nil
+		}
 		return cmdList(cfg)
 	case "remove", "rm":
 		return cmdRemove(cfg, arg(0))

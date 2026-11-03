@@ -21,6 +21,9 @@ var catalog = map[string]cmdInfo{
 	"diff":   {"<repo|all> [--pushed]", "what is not committed yet; --pushed: what the remote lacks", "Syncing"},
 
 	// Repositories
+	"path":   {"<repo>", "print its folder and nothing else, for cd $(syn path x)", "Repositories"},
+	"ignore": {"<repo> [<glob>|clear]", "keep files out of automatic commits (they stay on disk)", "Repositories"},
+	"pause":  {"<repo> <2h|1d|off>", "leave one repository out of automatic syncing for a while", "Running in the background"},
 	"ls":     {"", "list the repositories syn tracks", "Repositories"},
 	"list":   {"", "list the repositories syn tracks", "Repositories"},
 	"init":   {"[path]", "track the git repo at path (default: here)", "Repositories"},
@@ -52,18 +55,19 @@ var catalog = map[string]cmdInfo{
 	"tray":  {"", "sit in the system tray", "Running in the background"},
 
 	// This session
-	"help":    {"", "show every command", "This session"},
-	"shell":   {"", "a session that stays open until you type exit", "This session"},
-	"enable":  {"<repo>", "same as auto <repo> on", "This session"},
-	"disable": {"<repo>", "same as auto <repo> off", "This session"},
-	"deploy":  {"<repo> [on|off]", "make it a place code is deployed to: pull only, never push", "Automatic"},
-	"app":     {"<repo> -- <cmd>", "syn runs your program and restarts it when the code arrives", "Automatic"},
-	"restart": {"<repo> <files> -- <cmd>", "run a local command when those files arrive in a pull", "Automatic"},
-	"service": {"<install|uninstall|status>", "run the watcher as a system service (Linux servers)", "Automatic"},
-	"log":     {"[repo] [n] [--live]", "recent log lines, all or for one repo; --live follows", "This session"},
-	"clear":   {"", "clear the screen", "This session"},
-	"exit":    {"", "leave the shell", "This session"},
-	"version": {"", "print the version", "This session"},
+	"help":       {"", "show every command", "This session"},
+	"shell":      {"", "a session that stays open until you type exit", "This session"},
+	"enable":     {"<repo>", "same as auto <repo> on", "This session"},
+	"disable":    {"<repo>", "same as auto <repo> off", "This session"},
+	"deploy":     {"<repo> [on|off]", "make it a place code is deployed to: pull only, never push", "Automatic"},
+	"app":        {"<repo> -- <cmd>", "syn runs your program and restarts it when the code arrives", "Automatic"},
+	"completion": {"<bash|zsh|fish|powershell>", "print a shell completion script", "Account and setup"},
+	"restart":    {"<repo> <files> -- <cmd>", "run a local command when those files arrive in a pull", "Automatic"},
+	"service":    {"<install|uninstall|status>", "run the watcher as a system service (Linux servers)", "Automatic"},
+	"log":        {"[repo] [n] [--live]", "recent log lines, all or for one repo; --live follows", "This session"},
+	"clear":      {"", "clear the screen", "This session"},
+	"exit":       {"", "leave the shell", "This session"},
+	"version":    {"", "print the version", "This session"},
 }
 
 // subHints describe the second word, so a hint never dries up mid-command.
