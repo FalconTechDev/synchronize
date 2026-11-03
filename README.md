@@ -1,10 +1,8 @@
 <div align="center">
 
-<img src="docs/logo.png" alt="" width="104" height="104">
+<img src="docs/banner.png" alt="synchronize - every git repo in step, on every machine" width="100%">
 
-# synchronize
-
-**Keep every git repository in step across every machine you work on.**
+<br>
 
 [![Latest Release](https://img.shields.io/github/v/release/FalconTechDev/synchronize)](https://github.com/FalconTechDev/synchronize/releases/latest)
 [![Go 1.25](https://img.shields.io/badge/Go-1.25%2B-00ADD8?logo=go)](https://go.dev)
