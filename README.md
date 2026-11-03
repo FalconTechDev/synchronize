@@ -131,7 +131,14 @@ sudo ./install.sh --service --as deploy    # ...and run from boot
 
 ### macOS
 
-No prebuilt binaries yet — build from source, it takes a few seconds:
+```sh
+tar xzf syn-macos-arm64.tar.gz      # Apple Silicon; syn-macos-amd64 for Intel
+./install.sh                         # into ~/.local/bin
+```
+
+The binary is not notarized, so the first run may need a right-click → Open, or
+`xattr -d com.apple.quarantine ~/.local/bin/syn`. Or build it yourself, which
+takes a few seconds:
 
 ```sh
 git clone https://github.com/FalconTechDev/synchronize
@@ -406,6 +413,19 @@ syn config test                             # send one now, and find out it work
 The token comes from [@BotFather](https://t.me/BotFather), the chat id from
 [@userinfobot](https://t.me/userinfobot). Desktop notifications work without
 any of this.
+
+### Tab completion
+
+```bash
+source <(syn completion bash)                          # ~/.bashrc
+source <(syn completion zsh)                           # ~/.zshrc
+syn completion fish | source                           # ~/.config/fish/config.fish
+syn completion powershell | Out-String | Invoke-Expression   # $PROFILE
+```
+
+Commands, subcommands, flags and your repository names all complete. It is
+generated from the same table as `syn help`, so a command added there is
+completable without anyone editing a script.
 
 ### Ways to look at it
 
