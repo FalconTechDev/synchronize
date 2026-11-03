@@ -252,6 +252,20 @@ func run(args []string) error {
 	syn.Quiet = has("--quiet") || has("-q")
 	syn.Verbose = has("-v") || has("--verbose")
 
+	// A bare flag - `syn --help`, `syn -h`, `syn --version` - leaves nothing
+	// positional, and the line below used to index into the empty list: the
+	// first thing most people type crashed with a stack trace. The cases for
+	// them in the dispatcher were never reachable, because flags are taken
+	// out of the arguments before it runs.
+	if len(pos) == 0 {
+		if has("--version") {
+			fmt.Printf("synchronize %s (%s/%s)\n", Version, runtime.GOOS, runtime.GOARCH)
+			return nil
+		}
+		fmt.Print(usage)
+		return nil
+	}
+
 	cmd := pos[0]
 	rest := pos[1:]
 	arg := func(i int) string {
