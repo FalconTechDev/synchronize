@@ -312,7 +312,10 @@ type FileChange struct {
 }
 
 func ChangedFilesDetailed(dir string) []FileChange {
-	out, err := git(dir, "status", "--porcelain=v1")
+	// --untracked-files=all, or a new folder comes back as the single entry
+	// "dir/" and nothing inside it can be matched against a pattern: a held-
+	// back "*.env" never saw the .env in there, and it was committed.
+	out, err := git(dir, "status", "--porcelain=v1", "--untracked-files=all")
 	if err != nil {
 		return nil
 	}
