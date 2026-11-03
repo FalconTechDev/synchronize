@@ -267,6 +267,10 @@ func (c *Config) Save() error {
 	if err := os.WriteFile(tmp, b, 0o600); err != nil {
 		return err
 	}
+	// 0600 is a no-op on Windows; the ACL is what keeps other accounts out.
+	if err := makePrivate(tmp); err != nil {
+		Debug("could not restrict %s to its owner: %v", tmp, err)
+	}
 	return os.Rename(tmp, configPath())
 }
 

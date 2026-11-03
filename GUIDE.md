@@ -380,7 +380,9 @@ Other properties:
   says came from another site. `--addr :8080` listens on every interface —
   syn warns when you ask for that, because anyone who can reach it can
   publish your work. `--addr 127.0.0.1:8080` changes the port without that.
-- Tokens live in `~/.synchronize/credentials.json`, mode 0600.
+- Tokens live in `~/.synchronize/credentials.json`, readable by you alone: mode 0600 on
+  Linux and macOS, and on Windows an ACL that lists only your account (`config.json`,
+  which can hold a Telegram token, is treated the same).
 - They are never written into a remote URL. They reach git through a
   credential helper for the length of one command.
 - `GIT_TERMINAL_PROMPT=0`, so git never sits waiting for a password
@@ -424,7 +426,7 @@ Files under `SYNCHRONIZE_HOME`:
 | | |
 |---|---|
 | `config.json` | repositories, hooks, apps, settings |
-| `credentials.json` | tokens, mode 0600 |
+| `credentials.json` | tokens, owner-only |
 | `synchronize.log` | everything syn has done |
 | `state.json` | last sync times, recorded conflicts |
 | `locks/` | inter-process locks |

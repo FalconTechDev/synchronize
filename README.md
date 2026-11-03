@@ -584,8 +584,9 @@ shell on every server that pulls it. **A push decides *whether* something runs.
 It never decides *what* runs.**
 
 - Tokens live in `~/.synchronize/credentials.json`. On Linux and macOS the file
-  is created mode `0600`; on Windows the permissions come from your user
-  profile folder, since POSIX mode bits do not map to Windows ACLs.
+  is created mode `0600`; on Windows that mode means nothing, so syn
+  rewrites the file's ACL to your account alone. `config.json` gets the same,
+  since it can hold a Telegram token.
 - Tokens are never written into a remote URL — they reach git through a
   credential helper, for the length of one command.
 - `GIT_TERMINAL_PROMPT=0`, so git never sits waiting for a password unattended.
