@@ -268,6 +268,24 @@ func run(args []string) error {
 
 	cmd := pos[0]
 	rest := pos[1:]
+
+	// Help for one command: `syn pull --help`, `syn help pull`. Handled here,
+	// before anything needs a repository, because asking how a command works
+	// must not depend on having set anything up.
+	if has("--help") || has("-h") {
+		if text, ok := commandHelp(cmd); ok {
+			fmt.Print(text)
+			return nil
+		}
+	}
+	if cmd == "help" && len(rest) > 0 {
+		text, ok := commandHelp(rest[0])
+		if !ok {
+			return unknownCommand(rest[0])
+		}
+		fmt.Print(text)
+		return nil
+	}
 	arg := func(i int) string {
 		if i < len(rest) {
 			return rest[i]
@@ -597,7 +615,7 @@ func dispatch(cmd string, rest []string, arg func(int) string, selector string, 
 	case "doctor":
 		return cmdDoctor(engine, cfg)
 	}
-	return fmt.Errorf("unknown command %q - run `syn help`", cmd)
+	return unknownCommand(cmd)
 }
 
 func pick(force bool, a, b func(*syn.Repo) syn.Result) func(*syn.Repo) syn.Result {
