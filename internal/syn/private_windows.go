@@ -3,10 +3,9 @@
 package syn
 
 import (
-	"fmt"
-	"os/exec"
 	"os/user"
-	"strings"
+
+	"golang.org/x/sys/windows"
 )
 
 // makePrivate leaves a file readable by its owner and nobody else.
@@ -18,19 +17,36 @@ import (
 // with a second user that is them, and in a shared location it can be a whole
 // group. The files this is used on hold a GitHub token and a Telegram token.
 //
-// It is a hardening step, not a requirement: if icacls is missing or refuses,
-// the file is still written and the caller carries on.
+// It is a hardening step, not a requirement: if the ACL cannot be written, the
+// file is still there and the caller carries on.
 func makePrivate(path string) error {
 	u, err := user.Current()
 	if err != nil {
 		return err
 	}
 	// The SID rather than the name, which is "DOMAIN\user" in one place and
-	// localised in another, and is not always what icacls resolves.
-	cmd := exec.Command("icacls", path, "/inheritance:r", "/grant:r", "*"+u.Uid+":(F)")
-	hideConsole(cmd)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("icacls: %s", strings.TrimSpace(decodeConsole(out)))
+	// localised in another.
+	sid, err := windows.StringToSid(u.Uid)
+	if err != nil {
+		return err
 	}
-	return nil
+	// A fresh ACL holding one entry, written as protected so nothing is inherited.
+	// Removing inheritance alone is not enough: an elevated process creates the file
+	// with SYSTEM and the Administrators group already listed explicitly, and those
+	// stay unless the whole list is replaced.
+	acl, err := windows.ACLFromEntries([]windows.EXPLICIT_ACCESS{{
+		AccessPermissions: windows.GENERIC_ALL,
+		AccessMode:        windows.SET_ACCESS,
+		Inheritance:       windows.NO_INHERITANCE,
+		Trustee: windows.TRUSTEE{
+			TrusteeForm:  windows.TRUSTEE_IS_SID,
+			TrusteeType:  windows.TRUSTEE_IS_USER,
+			TrusteeValue: windows.TrusteeValueFromSID(sid),
+		},
+	}}, nil)
+	if err != nil {
+		return err
+	}
+	return windows.SetNamedSecurityInfo(path, windows.SE_FILE_OBJECT,
+		windows.DACL_SECURITY_INFORMATION|windows.PROTECTED_DACL_SECURITY_INFORMATION, nil, nil, acl, nil)
 }
