@@ -5,6 +5,8 @@ go 1.25.0
 require (
 	fyne.io/systray v1.12.2
 	github.com/wailsapp/wails/v2 v2.15.0
+	golang.org/x/sys v0.47.0
+	golang.org/x/term v0.45.0
 )
 
 require (
@@ -34,7 +36,5 @@ require (
 	github.com/wailsapp/mimetype v1.4.1 // indirect
 	golang.org/x/crypto v0.53.0 // indirect
 	golang.org/x/net v0.56.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
-	golang.org/x/term v0.45.0 // indirect
 	golang.org/x/text v0.39.0 // indirect
 )
