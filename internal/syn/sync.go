@@ -250,8 +250,14 @@ func (e *Engine) autoCommit(r *Repo) (bool, []FileChange, error) {
 	// Anything held back stays on disk and out of the commit. `add -A` would
 	// otherwise sweep in the very files you asked it not to.
 	kept, held := splitHeldBack(files, r.NoCommit)
-	if len(held) > 0 {
-		Debug("%s: holding back %d file(s) from the commit", r.Name, len(held))
+
+	// And what nobody asked to hold back but nobody would want committed
+	// either: a new secret, or a file the remote would refuse.
+	kept, guarded := guard(r, kept)
+	explainHeld(r, guarded)
+
+	if len(held)+len(guarded) > 0 {
+		Debug("%s: holding back %d file(s) from the commit", r.Name, len(held)+len(guarded))
 		for _, f := range kept {
 			if _, err := git(r.Path, "add", "--", f.Path); err != nil {
 				return false, nil, err
@@ -783,12 +789,22 @@ func matchesAny(path string, patterns []string) bool {
 // would take, and what it would step over.
 func WouldCommit(r *Repo) []FileChange {
 	take, _ := splitHeldBack(ChangedFilesDetailed(r.Path), r.NoCommit)
+	take, _ = guard(r, take)
 	return take
 }
 
 func WouldHoldBack(r *Repo) []FileChange {
 	_, hold := splitHeldBack(ChangedFilesDetailed(r.Path), r.NoCommit)
 	return hold
+}
+
+// WouldGuard is what the automatic commit would step over on its own account:
+// new secrets and files too big for the remote. A dry run that promised to
+// commit a .env the real run then leaves alone would be a lie.
+func WouldGuard(r *Repo) []HeldFile {
+	take, _ := splitHeldBack(ChangedFilesDetailed(r.Path), r.NoCommit)
+	_, held := guard(r, take)
+	return held
 }
 
 // UnknownPlaceholders finds {things} in a commit template that syn does not

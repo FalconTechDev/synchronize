@@ -369,7 +369,15 @@ Per repository:
 | `syn set <repo> branch dev` | pin it to a branch |
 | `syn set <repo> name shorter` | rename it |
 | `syn set <repo> autocommit off` | sync only the commits you made yourself |
+| `syn set <repo> secret_guard off` | let a new `.env` or key file through an automatic commit |
 | `syn set <repo> require_checks on` | never pull a commit whose CI is not green |
+
+**Secrets and huge files are left out on their own.** An automatic commit takes everything that
+changed, so syn steps over two things nobody wants published: a *new* `.env`, `.pem`, `.key` or
+similar (templates like `.env.example` are fine), and any file over 95 MB, which GitHub would
+refuse and keep refusing on every later sync. It says so once and leaves the file where it is.
+If you stage or commit the file yourself, that settles it and syn carries it from then on;
+Git LFS repositories are exempt from the size rule.
 
 **`autocommit off`** is for a repository you develop in rather than one you
 just keep in step. syn still pulls, and still pushes the commits you made, but

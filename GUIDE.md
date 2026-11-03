@@ -409,6 +409,7 @@ syn set my-repo branch dev
 syn set my-repo name shorter-name
 syn set my-repo require_checks on|off
 syn set my-repo autocommit off      # sync only the commits you made yourself
+syn set my-repo secret_guard off     # allow a new .env / key through automatic commits
 ```
 
 `autocommit off` is for a repository you develop in rather than one you just

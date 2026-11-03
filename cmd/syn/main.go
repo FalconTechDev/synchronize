@@ -784,6 +784,15 @@ func cmdSet(cfg *syn.Config, key, field, value string) error {
 			return fmt.Errorf("interval must be minutes, or a duration like 30m, 12h, 1d (0 = use the global setting)")
 		}
 		r.IntervalMinutes = n
+	case "secret_guard", "secret-guard":
+		switch value {
+		case "on", "true", "yes":
+			r.SecretGuardOff = false
+		case "off", "false", "no":
+			r.SecretGuardOff = true
+		default:
+			return fmt.Errorf("secret_guard is on or off, not %q", value)
+		}
 	case "autocommit", "auto_commit":
 		switch value {
 		case "on", "true", "yes":
@@ -803,7 +812,7 @@ func cmdSet(cfg *syn.Config, key, field, value string) error {
 			return fmt.Errorf("require_checks is on or off, not %q", value)
 		}
 	default:
-		return fmt.Errorf("cannot set %q - use name, remote, branch, interval, autocommit or require_checks", field)
+		return fmt.Errorf("cannot set %q - use name, remote, branch, interval, autocommit, secret_guard or require_checks", field)
 	}
 	if err := cfg.Save(); err != nil {
 		return err

@@ -220,6 +220,12 @@ func dryRun(e *syn.Engine, repos []*syn.Repo) error {
 				fmt.Printf("      %-9s %s\n", f.Status, f.Path)
 			}
 		}
+		if guarded := syn.WouldGuard(r); len(guarded) > 0 {
+			fmt.Println("  would not commit:")
+			for _, h := range guarded {
+				fmt.Printf("      %-9s %s  (%s)\n", h.File.Status, h.File.Path, h.Why)
+			}
+		}
 		if st.Behind > 0 {
 			did = true
 			fmt.Printf("  would pull %s from %s/%s\n", plural(st.Behind, "commit"), r.Remote, st.Branch)

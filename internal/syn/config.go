@@ -49,6 +49,10 @@ type Repo struct {
 	// half-finished, which is rarely what was wanted.
 	NoAutoCommit bool `json:"no_auto_commit,omitempty"`
 
+	// SecretGuardOff lets a new .env, key or similar through an automatic
+	// commit. Off by default: see guard.go for why that is the safe default.
+	SecretGuardOff bool `json:"secret_guard_off,omitempty"`
+
 	// PullOnly makes this a place code is deployed to rather than worked
 	// in: syncing brings changes down and never sends anything up. A server
 	// writes into its own working tree all the time - logs, caches, an
